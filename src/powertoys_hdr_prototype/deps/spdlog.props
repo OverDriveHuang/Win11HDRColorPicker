@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Compatibility shim for projects that still import deps\spdlog.props.
+    This PowerToys prototype uses the repository vcpkg manifest for the actual
+    spdlog package, so this file only keeps the legacy import path valid.
+  -->
+</Project>

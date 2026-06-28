@@ -1,1 +1,67 @@
 # WinHDRColorPicker
+
+Standalone Windows HDR color picker prototype based on Microsoft PowerToys Color Picker UI code, with an HDR sampling path added for Windows Graphics Capture FP16 output.
+
+## Current status
+
+This repository contains the completed Phase 2 standalone prototype. It is not integrated back into PowerToys yet, but it keeps the PowerToys Color Picker style, color format system, palette behavior, popup picker flow, settings panel, tray entry, and configurable global shortcut.
+
+## Download
+
+The runnable self-contained Windows x64 package is included here:
+
+`releases/WinHDRColorPicker-stage2-win-x64.zip`
+
+Unzip it and run:
+
+`PowerToys.ColorPickerUI.Stage2.exe`
+
+The package is self-contained for .NET, so it should not require a separate .NET runtime installation.
+
+## Default popup formats
+
+`default SDR`
+
+`RGB = rgb(%Re, %Gr, %Bl), CIELAB = (%Lc, %Ca, %Cb), H=%Hu, S=%Sb%`
+
+`default HDR`
+
+`Nits = (Y=%Ny, %Nr, %Ng, %Nb), I=%Ii, I10=%Ic, Ct=%Ct, Cp=%Cp`
+
+## Source layout
+
+- `src/powertoys_hdr_prototype/` - PowerToys-derived standalone Stage2 Color Picker UI prototype.
+- `src/hdr_picker_core/` - native HDR sampling and color math core.
+- `src/hdr_sampler_demo/` - native WGC FP16 sampling demo and test projects.
+- `docs/requirements.md` - product requirements.
+- `docs/productization_design.md` - Phase 2 design and integration notes.
+- `docs/technical_direction.md` - HDR capture technical direction.
+
+## Build
+
+The Stage2 WPF app builds from:
+
+`src/powertoys_hdr_prototype/src/modules/colorPicker/ColorPickerUI/ColorPickerUI.Stage2.csproj`
+
+Example:
+
+```powershell
+dotnet build .\src\powertoys_hdr_prototype\src\modules\colorPicker\ColorPickerUI\ColorPickerUI.Stage2.csproj -c Release
+```
+
+Self-contained publish:
+
+```powershell
+dotnet publish .\src\powertoys_hdr_prototype\src\modules\colorPicker\ColorPickerUI\ColorPickerUI.Stage2.csproj -c Release -r win-x64 --self-contained true -o .\artifacts\WinHDRColorPicker-win-x64
+```
+
+Build requirements:
+
+- Windows 11
+- .NET SDK compatible with `net10.0-windows10.0.26100.0`
+- Windows SDK 10.0.26100.0 or newer
+- Visual Studio Build Tools with Desktop C++ workload for native demo/core work
+
+## License and notices
+
+This prototype is derived from Microsoft PowerToys source code. The repository includes the PowerToys MIT license and notice file.

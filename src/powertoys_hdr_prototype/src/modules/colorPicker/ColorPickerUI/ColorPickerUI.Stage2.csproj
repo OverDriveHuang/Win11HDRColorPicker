@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>PowerToys.ColorPickerUI.Stage2</AssemblyName>
+    <RootNamespace>ColorPicker</RootNamespace>
+    <StartupObject>ColorPicker.Program</StartupObject>
+    <ApplicationIcon>Assets\ColorPicker\icon.ico</ApplicationIcon>
+    <OutputPath>$(MSBuildProjectDirectory)\stage2-bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <RunAnalyzers>false</RunAnalyzers>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Settings\UserSettings.cs" />
+    <Compile Remove="Keyboard\KeyboardMonitor.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ControlzEx" />
+    <PackageReference Include="System.ComponentModel.Composition" />
+    <PackageReference Include="System.IO.Abstractions" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\common\ManagedCommon\ColorFormatHelper.cs" Link="Stage2Linked\ColorFormatHelper.cs" />
+    <Compile Include="..\..\..\common\ManagedCommon\ColorNameHelper.cs" Link="Stage2Linked\ColorNameHelper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\ColorPicker\icon.ico" />
+    <Resource Include="Shaders\GridShader.cso" />
+    <Content Include="Shaders\GridShader.fx" />
+    <None Include="..\..\..\..\..\hdr_sampler_demo\x64\Release\HdrSamplerNative.dll" Condition="Exists('..\..\..\..\..\hdr_sampler_demo\x64\Release\HdrSamplerNative.dll')">
+      <Link>HdrSamplerNative.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="GenerateStage2BuildInfo" BeforeTargets="BeforeCompile">
+    <PropertyGroup>
+      <Stage2BuildTimestamp>$([System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))</Stage2BuildTimestamp>
+      <Stage2BuildInfoFile>$(IntermediateOutputPath)Stage2BuildInfo.g.cs</Stage2BuildInfoFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <Stage2BuildInfoLine Include="// &lt;auto-generated /&gt;" />
+      <Stage2BuildInfoLine Include="namespace ColorPicker.Stage2" />
+      <Stage2BuildInfoLine Include="{" />
+      <Stage2BuildInfoLine Include="    public static class Stage2BuildInfo" />
+      <Stage2BuildInfoLine Include="    {" />
+      <Stage2BuildInfoLine Include="        public const string BuildTimestamp = &quot;$(Stage2BuildTimestamp)&quot;%3B" />
+      <Stage2BuildInfoLine Include="        public const string BuildLabel = &quot;Build $(Stage2BuildTimestamp)&quot;%3B" />
+      <Stage2BuildInfoLine Include="    }" />
+      <Stage2BuildInfoLine Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(Stage2BuildInfoFile)" Lines="@(Stage2BuildInfoLine)" Overwrite="true" Encoding="UTF-8" />
+    <ItemGroup>
+      <Compile Include="$(Stage2BuildInfoFile)" Visible="false" />
+    </ItemGroup>
+  </Target>
+</Project>

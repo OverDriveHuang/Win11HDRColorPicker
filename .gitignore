@@ -1,0 +1,15 @@
+.vs/
+packages/
+x64/
+ARM64/
+Debug/
+Release/
+Generated Files/
+bin/
+obj/
+stage2-bin/
+artifacts/
+*.user
+*.suo
+*.VC.db
+*.opendb
