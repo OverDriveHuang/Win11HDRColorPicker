@@ -18,6 +18,8 @@ Unzip it and run:
 
 The package is self-contained for .NET, so it should not require a separate .NET runtime installation.
 
+Before launching this standalone app, turn off the built-in PowerToys Color Picker feature. If PowerToys Color Picker is still enabled, the standalone app can fail to start because the global shortcut and picker instance conflict with PowerToys.
+
 ## Default popup formats
 
 `default SDR`
