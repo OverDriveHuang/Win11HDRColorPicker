@@ -33,5 +33,9 @@ namespace ColorPicker.Hdr
         public int IctcpI10 { get; init; }
 
         public Color SdrColor { get; init; } = Color.Transparent;
+
+        public bool BorderlessRequested { get; init; }
+
+        public bool BorderlessUsed { get; init; }
     }
 }

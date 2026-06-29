@@ -163,64 +163,26 @@ namespace ColorPicker.Keyboard
             }
 
             var virtualCode = e.KeyboardData.VirtualCode;
-            if (IsConfiguredShortcut(virtualCode))
-            {
-                _appStateHandler.StartUserSession();
-                e.Handled = true;
-                return;
-            }
-
             if (virtualCode == KeyInterop.VirtualKeyFromKey(Key.Escape))
             {
-                e.Handled = _appStateHandler.HandleEscPressed();
+                if (_appStateHandler.IsColorPickerVisible())
+                {
+                    e.Handled = true;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() => _appStateHandler.HandleEscPressed()), DispatcherPriority.Input);
+                }
+
                 return;
             }
 
             if (virtualCode == KeyInterop.VirtualKeyFromKey(Key.Space) || virtualCode == KeyInterop.VirtualKeyFromKey(Key.Enter))
             {
-                e.Handled = _appStateHandler.HandleEnterPressed();
+                if (_appStateHandler.IsColorPickerVisible())
+                {
+                    e.Handled = true;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() => _appStateHandler.HandleEnterPressed()), DispatcherPriority.Input);
+                }
             }
         }
-
-        private bool IsConfiguredShortcut(int virtualCode)
-        {
-            if (IsModifierVirtualKey(virtualCode))
-            {
-                return false;
-            }
-
-            var (modifiers, expectedVirtualKey) = ParseShortcut(_userSettings.ActivationShortcut.Value);
-            return modifiers != 0 && expectedVirtualKey == virtualCode && CurrentModifierMask() == modifiers;
-        }
-
-        private static uint CurrentModifierMask()
-        {
-            uint modifiers = 0;
-            if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0)
-            {
-                modifiers |= ModAlt;
-            }
-
-            if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0)
-            {
-                modifiers |= ModControl;
-            }
-
-            if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0)
-            {
-                modifiers |= ModShift;
-            }
-
-            if ((GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 || (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0)
-            {
-                modifiers |= ModWin;
-            }
-
-            return modifiers;
-        }
-
-        private static bool IsModifierVirtualKey(int virtualKey)
-            => virtualKey == VK_SHIFT || virtualKey == VK_CONTROL || virtualKey == VK_MENU || virtualKey == VK_LWIN || virtualKey == VK_RWIN || virtualKey == 0xA0 || virtualKey == 0xA1 || virtualKey == 0xA2 || virtualKey == 0xA3 || virtualKey == 0xA4 || virtualKey == 0xA5;
 
         private void EnsureTrayIcon()
         {

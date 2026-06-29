@@ -31,6 +31,13 @@ struct HdrSampleOptions
     int FrameTimeoutMs = 3000;
 };
 
+struct HdrCaptureCapabilities
+{
+    bool WgcSupported = false;
+    bool CreateFreeThreadedSupported = false;
+    bool BorderlessSupported = false;
+};
+
 struct HdrColorSample
 {
     HdrSampleStatus Status = HdrSampleStatus::CaptureFailed;
@@ -45,6 +52,8 @@ struct HdrColorSample
     int ActualHeight = 0;
     int PixelCount = 0;
     bool HasHdrData = false;
+    bool BorderlessRequested = false;
+    bool BorderlessUsed = false;
     std::wstring StatusMessage;
 };
 
@@ -54,8 +63,10 @@ public:
     HdrSampler();
     ~HdrSampler();
 
+    HdrCaptureCapabilities GetCapabilities();
     bool RequestBorderlessAccess();
     HdrColorSample SampleAtCursor(HdrSampleOptions options);
+    void CloseCapture();
 
 private:
     struct Impl;

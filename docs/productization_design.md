@@ -498,14 +498,21 @@ Phase 1 已完成。Phase 2 在用户反馈后纠正为 PowerToys-code-based pro
 
 - `.\scripts\build-demo.ps1`：Release x64 native/demo/test 构建通过，0 warning / 0 error。
 - `.\x64\Release\HdrColorTests.exe`：通过。
-- `.\x64\Release\HdrSamplerDemo.exe --once --sample-size 1`：返回 `status: Ok`。
-- `src/powertoys_hdr_prototype/src/modules/colorPicker/ColorPickerUI/ColorPickerUI.csproj`：当前机器缺少 .NET SDK，MSBuild 无法解析 `Microsoft.NET.Sdk`，因此 C# 原型尚未完成编译验证。
+- `src/powertoys_hdr_prototype/src/modules/colorPicker/ColorPickerUI/ColorPickerUI.Stage2.csproj`：Release 构建通过，0 warning / 0 error。
+- 用户在 Windows 11 HDR 环境验证了 Stage2 独立版的快捷键启动、ESC 取消、鼠标确认、HDR/SDR 格式显示和主题修复。
+
+当前 Phase 2 修复：
+
+- WGC / `CreateFreeThreaded` / borderless API 使用 runtime feature detection。
+- borderless 不支持或未授权时，HDR 采样走有边框 WGC fallback；WGC/FP16 不可用时 HDR token 输出 `N/A`。
+- picker 活动期间复用同一个 WGC session/frame pool，避免每次 mouse sample 都重建 capture session。
+- Stage2 Settings 底部增加简洁 HDR diagnostics 区域。
+- Stage2 独立版使用 `RegisterHotKey` 启动 picker；低级键盘 hook 只处理 picker 激活后的 `Esc` / `Enter` / `Space`，并通过 WPF dispatcher 执行关闭/确认逻辑。
 
 剩余：
 
-- 需要安装 .NET SDK 后编译验证 PowerToys C# 原型。
-- 需要把 sample-size 设置接入 PowerToys 设置模型，而不是固定 `1x1`。
-- full HDR-content UX validation 需要在用户 HDR 显示器上交互试用。
+- Win10 21H2 实机验证尚未完成；如果仍有问题，后续用新的 bug task 和 diagnostics/log 继续修。
+- full PowerToys integration 仍属于 Phase 3。
 
 ## 当前里程碑范围
 

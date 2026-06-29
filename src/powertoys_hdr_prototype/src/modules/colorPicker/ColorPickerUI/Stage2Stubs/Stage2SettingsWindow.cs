@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -27,6 +28,7 @@ namespace ColorPicker.Stage2
         private readonly StackPanel _formatRows = new StackPanel();
         private readonly ComboBox _hoverFormatComboBox = new ComboBox { Width = 320, HorizontalAlignment = HorizontalAlignment.Left };
         private readonly TextBlock _shortcutStatus = new TextBlock { Margin = new Thickness(120, 4, 0, 0), Opacity = 0.75 };
+        private readonly TextBlock _hdrDiagnosticsText = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
         private readonly Button _shortcutButton = new Button { MinWidth = 260, HorizontalContentAlignment = HorizontalAlignment.Left };
         private readonly Button _shortcutCancelButton = new Button { Content = "Cancel", MinWidth = 76, IsEnabled = false };
         private readonly Button _shortcutResetButton = new Button { Content = "Reset default", MinWidth = 104 };
@@ -46,6 +48,7 @@ namespace ColorPicker.Stage2
             MinWidth = 760;
             MinHeight = 620;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ApplyWindowTheme(this);
 
             Content = BuildContent();
             RefreshFormatRows();
@@ -75,6 +78,7 @@ namespace ColorPicker.Stage2
         private UIElement BuildContent()
         {
             var panel = new StackPanel { Margin = new Thickness(18) };
+            ApplyTextBrush(panel, "TextFillColorPrimaryBrush");
 
             panel.Children.Add(Header("Activation"));
             _shortcutButton.Content = _settings.ActivationShortcut.Value;
@@ -129,6 +133,7 @@ namespace ColorPicker.Stage2
             changeCursor.Checked += (_, __) => _settings.ChangeCursor.Value = true;
             changeCursor.Unchecked += (_, __) => _settings.ChangeCursor.Value = false;
             panel.Children.Add(changeCursor);
+            panel.Children.Add(BuildHdrDiagnosticsPanel());
 
             return new ScrollViewer
             {
@@ -159,6 +164,7 @@ namespace ColorPicker.Stage2
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
+            ApplyTextBrush(panel, "TextFillColorPrimaryBrush");
             panel.Children.Add(_hoverFormatComboBox);
             return panel;
         }
@@ -184,8 +190,8 @@ namespace ColorPicker.Stage2
 
             var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(text, 1);
-            text.Children.Add(new TextBlock { Text = "Color formats", FontWeight = FontWeights.SemiBold });
-            text.Children.Add(new TextBlock { Text = "Configure the color formats (edit, delete, hide, reorder them)", Opacity = 0.7 });
+            text.Children.Add(ThemedTextBlock("Color formats", "TextFillColorPrimaryBrush", fontWeight: FontWeights.SemiBold));
+            text.Children.Add(ThemedTextBlock("Configure the color formats (edit, delete, hide, reorder them)", "TextFillColorSecondaryBrush"));
             grid.Children.Add(text);
 
             var addButton = new Button { Content = "Add new format", MinWidth = 120, Padding = new Thickness(12, 6, 12, 6), VerticalAlignment = VerticalAlignment.Center };
@@ -193,6 +199,25 @@ namespace ColorPicker.Stage2
             Grid.SetColumn(addButton, 2);
             grid.Children.Add(addButton);
 
+            return border;
+        }
+
+        private UIElement BuildHdrDiagnosticsPanel()
+        {
+            var border = CardBorder();
+            border.Margin = new Thickness(0, 12, 0, 0);
+
+            var panel = new StackPanel();
+            border.Child = panel;
+
+            panel.Children.Add(ThemedTextBlock("HDR diagnostics", "TextFillColorPrimaryBrush", fontWeight: FontWeights.SemiBold));
+            _hdrDiagnosticsText.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
+            _hdrDiagnosticsText.Text = HdrSamplerNative.GetDiagnosticsText();
+            panel.Children.Add(_hdrDiagnosticsText);
+
+            var refreshButton = new Button { Content = "Refresh", MinWidth = 80, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+            refreshButton.Click += (_, __) => _hdrDiagnosticsText.Text = HdrSamplerNative.GetDiagnosticsText();
+            panel.Children.Add(refreshButton);
             return border;
         }
 
@@ -249,8 +274,8 @@ namespace ColorPicker.Stage2
             border.Child = grid;
 
             var text = new StackPanel { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            text.Children.Add(new TextBlock { Text = format.Name, FontWeight = FontWeights.SemiBold });
-            text.Children.Add(new TextBlock { Text = FormatPreview(format.Format), Opacity = 0.72, TextTrimming = TextTrimming.CharacterEllipsis });
+            text.Children.Add(ThemedTextBlock(format.Name, "TextFillColorPrimaryBrush", fontWeight: FontWeights.SemiBold));
+            text.Children.Add(ThemedTextBlock(FormatPreview(format.Format), "TextFillColorSecondaryBrush", textTrimming: TextTrimming.CharacterEllipsis));
             grid.Children.Add(text);
 
             var toggle = new CheckBox { IsChecked = format.IsEnabled, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 12, 0) };
@@ -565,31 +590,63 @@ namespace ColorPicker.Stage2
         }
 
         private static Border CardBorder()
-            => new Border
+        {
+            var border = new Border
             {
-                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(44, 44, 44)),
                 CornerRadius = new CornerRadius(4),
                 Padding = new Thickness(10),
                 MinHeight = 66,
             };
+            border.SetResourceReference(Border.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+            border.SetResourceReference(Border.BorderBrushProperty, "CardStrokeColorDefaultBrush");
+            border.BorderThickness = new Thickness(1);
+            return border;
+        }
 
         private static TextBlock Header(string text)
-            => new TextBlock
+        {
+            var textBlock = ThemedTextBlock(text, "TextFillColorPrimaryBrush", fontWeight: FontWeights.SemiBold);
+            textBlock.Margin = new Thickness(0, 18, 0, 8);
+            return textBlock;
+        }
+
+        internal static TextBlock ThemedTextBlock(string text, string brushKey, FontWeight? fontWeight = null, TextTrimming textTrimming = TextTrimming.None)
+        {
+            var textBlock = new TextBlock
             {
                 Text = text,
-                FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 18, 0, 8),
+                TextTrimming = textTrimming,
             };
+            textBlock.SetResourceReference(TextBlock.ForegroundProperty, brushKey);
+            if (fontWeight.HasValue)
+            {
+                textBlock.FontWeight = fontWeight.Value;
+            }
+
+            return textBlock;
+        }
+
+        internal static void ApplyWindowTheme(Window window)
+        {
+            window.SetResourceReference(Window.BackgroundProperty, "ApplicationBackgroundBrush");
+            ApplyTextBrush(window, "TextFillColorPrimaryBrush");
+        }
+
+        internal static void ApplyTextBrush(DependencyObject element, string brushKey)
+        {
+            if (element is FrameworkElement frameworkElement)
+            {
+                frameworkElement.SetResourceReference(TextElement.ForegroundProperty, brushKey);
+            }
+        }
 
         private static FrameworkElement Labeled(string label, FrameworkElement control)
         {
             var panel = new DockPanel { Margin = new Thickness(0, 6, 0, 0), LastChildFill = true };
-            panel.Children.Add(new TextBlock
-            {
-                Text = label,
-                Width = 120,
-                VerticalAlignment = VerticalAlignment.Center,
-            });
+            var labelBlock = ThemedTextBlock(label, "TextFillColorPrimaryBrush");
+            labelBlock.Width = 120;
+            labelBlock.VerticalAlignment = VerticalAlignment.Center;
+            panel.Children.Add(labelBlock);
             panel.Children.Add(control);
             return panel;
         }
@@ -609,11 +666,13 @@ namespace ColorPicker.Stage2
             MinWidth = 500;
             MinHeight = 620;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Stage2SettingsWindow.ApplyWindowTheme(this);
 
             _nameTextBox.Text = format?.Name ?? "My Format";
             _formatTextBox.Text = format?.Format ?? "new Color (R = %Re, G = %Gr, B = %Bl)";
             _nameTextBox.TextChanged += (_, __) => UpdatePreview();
             _formatTextBox.TextChanged += (_, __) => UpdatePreview();
+            _previewText.SetResourceReference(TextBlock.ForegroundProperty, "AccentTextFillColorPrimaryBrush");
 
             Content = BuildContent(format == null);
             UpdatePreview();
@@ -626,8 +685,11 @@ namespace ColorPicker.Stage2
         private UIElement BuildContent(bool isAdd)
         {
             var root = new DockPanel();
+            root.SetResourceReference(DockPanel.BackgroundProperty, "ApplicationBackgroundBrush");
+            Stage2SettingsWindow.ApplyTextBrush(root, "TextFillColorPrimaryBrush");
 
             var buttons = new Grid { Margin = new Thickness(18), Height = 44 };
+            buttons.SetResourceReference(Grid.BackgroundProperty, "ApplicationBackgroundBrush");
             buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
             buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -652,15 +714,23 @@ namespace ColorPicker.Stage2
             buttons.Children.Add(cancel);
 
             var panel = new StackPanel { Margin = new Thickness(22) };
+            Stage2SettingsWindow.ApplyTextBrush(panel, "TextFillColorPrimaryBrush");
             root.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = panel });
 
-            panel.Children.Add(new TextBlock { Text = Title, FontSize = 20, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 14) });
-            panel.Children.Add(new TextBlock { Text = "Name" });
+            var title = Stage2SettingsWindow.ThemedTextBlock(Title, "TextFillColorPrimaryBrush", fontWeight: FontWeights.SemiBold);
+            title.FontSize = 20;
+            title.Margin = new Thickness(0, 0, 0, 14);
+            panel.Children.Add(title);
+            panel.Children.Add(Stage2SettingsWindow.ThemedTextBlock("Name", "TextFillColorPrimaryBrush"));
             panel.Children.Add(_nameTextBox);
-            panel.Children.Add(new TextBlock { Text = "Format", Margin = new Thickness(0, 12, 0, 0) });
+            var formatLabel = Stage2SettingsWindow.ThemedTextBlock("Format", "TextFillColorPrimaryBrush");
+            formatLabel.Margin = new Thickness(0, 12, 0, 0);
+            panel.Children.Add(formatLabel);
             panel.Children.Add(_formatTextBox);
             panel.Children.Add(_previewText);
-            panel.Children.Add(new TextBlock { Text = "The following parameters can be used:", Margin = new Thickness(0, 18, 0, 8) });
+            var parametersLabel = Stage2SettingsWindow.ThemedTextBlock("The following parameters can be used:", "TextFillColorPrimaryBrush");
+            parametersLabel.Margin = new Thickness(0, 18, 0, 8);
+            panel.Children.Add(parametersLabel);
             panel.Children.Add(TokenGrid(new[]
             {
                 ("%Re", "red"), ("%Gr", "green"), ("%Bl", "blue"),
@@ -675,7 +745,9 @@ namespace ColorPicker.Stage2
                 ("%Na", "color name"),
             }));
 
-            panel.Children.Add(new TextBlock { Text = "HDR parameters:", Margin = new Thickness(0, 16, 0, 8) });
+            var hdrLabel = Stage2SettingsWindow.ThemedTextBlock("HDR parameters:", "TextFillColorPrimaryBrush");
+            hdrLabel.Margin = new Thickness(0, 16, 0, 8);
+            panel.Children.Add(hdrLabel);
             panel.Children.Add(TokenGrid(new[]
             {
                 ("%Lr", "linear red"), ("%Lg", "linear green"), ("%Lb", "linear blue"),
@@ -684,14 +756,19 @@ namespace ColorPicker.Stage2
                 ("%Ct", "ICtCp Ct"), ("%Cp", "ICtCp Cp"),
             }));
 
-            panel.Children.Add(new TextBlock { Text = "The red, green, blue and alpha values can be formatted to the following formats:", Margin = new Thickness(0, 16, 0, 8) });
+            var valueFormatsLabel = Stage2SettingsWindow.ThemedTextBlock("The red, green, blue and alpha values can be formatted to the following formats:", "TextFillColorPrimaryBrush");
+            valueFormatsLabel.Margin = new Thickness(0, 16, 0, 8);
+            panel.Children.Add(valueFormatsLabel);
             panel.Children.Add(TokenGrid(new[]
             {
                 ("b", "byte value (default)"), ("h", "hex lowercase one digit"), ("H", "hex uppercase one digit"),
                 ("x", "hex lowercase two digits"), ("X", "hex uppercase two digits"), ("f", "float with leading zero"),
                 ("F", "float without leading zero"),
             }));
-            panel.Children.Add(new TextBlock { Text = "Example: %ReX means red value in hex uppercase two digits format.", Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap });
+            var example = Stage2SettingsWindow.ThemedTextBlock("Example: %ReX means red value in hex uppercase two digits format.", "TextFillColorPrimaryBrush");
+            example.Margin = new Thickness(0, 10, 0, 0);
+            example.TextWrapping = TextWrapping.Wrap;
+            panel.Children.Add(example);
 
             return root;
         }
@@ -712,8 +789,12 @@ namespace ColorPicker.Stage2
                 }
 
                 var item = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 10, 2) };
-                item.Children.Add(new TextBlock { Text = tokens[i].Token, Width = 42, FontWeight = FontWeights.SemiBold });
-                item.Children.Add(new TextBlock { Text = tokens[i].Description, TextWrapping = TextWrapping.Wrap });
+                var token = Stage2SettingsWindow.ThemedTextBlock(tokens[i].Token, "TextFillColorPrimaryBrush", fontWeight: FontWeights.SemiBold);
+                token.Width = 42;
+                item.Children.Add(token);
+                var description = Stage2SettingsWindow.ThemedTextBlock(tokens[i].Description, "TextFillColorPrimaryBrush");
+                description.TextWrapping = TextWrapping.Wrap;
+                item.Children.Add(description);
                 Grid.SetRow(item, row);
                 Grid.SetColumn(item, i % 3);
                 grid.Children.Add(item);

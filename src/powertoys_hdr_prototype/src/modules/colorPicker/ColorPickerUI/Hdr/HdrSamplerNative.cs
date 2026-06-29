@@ -36,10 +36,33 @@ namespace ColorPicker.Hdr
             public int ActualWidth;
             public int ActualHeight;
             public int PixelCount;
+            public int BorderlessRequested;
+            public int BorderlessUsed;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeDiagnostics
+        {
+            public int WgcSupported;
+            public int CreateFreeThreadedSupported;
+            public int BorderlessSupported;
+            public int BorderlessAccessChecked;
+            public int BorderlessAllowed;
+            public int LastStatus;
+            public int LastHadHdrData;
+            public int LastBorderlessRequested;
+            public int LastBorderlessUsed;
+            public int ActiveCapture;
         }
 
         [DllImport("HdrSamplerNative.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int HdrSampler_SampleAtCursor(int sampleSize, int requestBorderless, out NativeSample output);
+
+        [DllImport("HdrSamplerNative.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int HdrSampler_GetDiagnostics(out NativeDiagnostics output);
+
+        [DllImport("HdrSamplerNative.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int HdrSampler_CloseCapture();
 
         public static HdrColorSample TrySampleAtCursor(int sampleSize)
         {
@@ -66,6 +89,8 @@ namespace ColorPicker.Hdr
                     IctcpCp = native.IctcpCp,
                     IctcpI10 = native.IctcpI10,
                     SdrColor = System.Drawing.Color.FromArgb(native.SdrA, native.SdrR, native.SdrG, native.SdrB),
+                    BorderlessRequested = native.BorderlessRequested != 0,
+                    BorderlessUsed = native.BorderlessUsed != 0,
                 };
             }
             catch (DllNotFoundException)
@@ -79,6 +104,100 @@ namespace ColorPicker.Hdr
             catch (BadImageFormatException)
             {
                 return null;
+            }
+        }
+
+        public static string GetDiagnosticsText()
+        {
+            try
+            {
+                _ = HdrSampler_GetDiagnostics(out var diagnostics);
+                return FormatDiagnostics(diagnostics);
+            }
+            catch (DllNotFoundException)
+            {
+                return "Native sampler: HdrSamplerNative.dll not found\nHDR values will show N/A";
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return "Native sampler: diagnostics entry point not found\nHDR values will show N/A";
+            }
+            catch (BadImageFormatException)
+            {
+                return "Native sampler: architecture mismatch\nHDR values will show N/A";
+            }
+        }
+
+        public static void CloseCapture()
+        {
+            try
+            {
+                _ = HdrSampler_CloseCapture();
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+            catch (BadImageFormatException)
+            {
+            }
+        }
+
+        private static string FormatDiagnostics(NativeDiagnostics diagnostics)
+        {
+            if (diagnostics.WgcSupported == 0)
+            {
+                return "WGC: unsupported\nHDR values will show N/A";
+            }
+
+            if (diagnostics.CreateFreeThreadedSupported == 0)
+            {
+                return "WGC: supported\nFP16 capture: CreateFreeThreaded unavailable\nHDR values will show N/A";
+            }
+
+            var borderless = diagnostics.BorderlessSupported == 0
+                ? "Borderless: unavailable, using bordered capture"
+                : diagnostics.BorderlessAccessChecked == 0
+                    ? "Borderless: supported, access not requested yet"
+                    : diagnostics.BorderlessAllowed != 0
+                        ? "Borderless: enabled"
+                        : "Borderless: not allowed, using bordered capture";
+
+            return string.Join(
+                "\n",
+                "WGC: supported",
+                "FP16 capture: supported",
+                borderless,
+                diagnostics.ActiveCapture != 0 ? "Capture session: active" : "Capture session: inactive",
+                $"Last sample: {StatusToText(diagnostics.LastStatus, diagnostics.LastHadHdrData != 0)}");
+        }
+
+        private static string StatusToText(int status, bool hasHdrData)
+        {
+            switch (status)
+            {
+                case -3:
+                    return "No sample yet";
+                case -2:
+                    return "Native sampler failed";
+                case 0:
+                    return hasHdrData ? "OK" : "OK, no HDR data";
+                case 1:
+                    return "WGC unsupported";
+                case 3:
+                    return "Monitor unavailable";
+                case 4:
+                    return "Frame timeout";
+                case 5:
+                    return "Capture format unsupported";
+                case 6:
+                    return "Device lost";
+                case 7:
+                    return "Capture failed";
+                default:
+                    return $"Status {status}";
             }
         }
     }

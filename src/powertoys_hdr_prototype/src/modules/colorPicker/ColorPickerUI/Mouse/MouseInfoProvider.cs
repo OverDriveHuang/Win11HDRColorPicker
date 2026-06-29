@@ -55,8 +55,8 @@ namespace ColorPicker.Mouse
             }
 
             _previousMousePosition = GetCursorPosition();
-            _previousHdrColor = HdrSamplerNative.TrySampleAtCursor(GetSampleSize());
-            HdrSampleCache.Current = _previousHdrColor;
+            _previousHdrColor = null;
+            HdrSampleCache.Current = null;
             _previousColor = GetSdrColor(_previousMousePosition, _previousHdrColor);
         }
 
@@ -207,11 +207,12 @@ namespace ColorPicker.Mouse
 
         private void AppStateMonitor_AppShown(object sender, EventArgs e)
         {
-            UpdateMouseInfo();
             if (!_timer.IsEnabled)
             {
                 _timer.Start();
             }
+
+            Dispatcher.CurrentDispatcher.BeginInvoke(new Action(UpdateMouseInfo), DispatcherPriority.ApplicationIdle);
 
             _mouseHook.OnPrimaryMouseDown += MouseHook_OnPrimaryMouseDown;
             _mouseHook.OnMouseWheel += MouseHook_OnMouseWheel;
@@ -268,6 +269,7 @@ namespace ColorPicker.Mouse
                 _timer.Stop();
             }
 
+            HdrSamplerNative.CloseCapture();
             _previousMousePosition = new System.Windows.Point(-1, 1);
             _mouseHook.OnPrimaryMouseDown -= MouseHook_OnPrimaryMouseDown;
             _mouseHook.OnMouseWheel -= MouseHook_OnMouseWheel;

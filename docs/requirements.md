@@ -156,7 +156,7 @@ sample size 设置不能显示裸数字。必须显示为：
 - 必须提供恢复默认值的入口，将快捷键重置为 `Win + Shift + C`。
 - 修改后必须重新注册全局热键，旧热键必须失效，新热键必须生效。
 - 如果快捷键注册失败，例如被 PowerToys 或其他程序占用，应在 UI 或日志里明确提示，不能静默失败。
-- Stage2 独立版可以同时使用 `RegisterHotKey` 和低级键盘 hook 作为激活路径；当 `RegisterHotKey` 对某些系统组合键不可靠时，hook 仍应按当前设置触发 picker。
+- Stage2 独立版使用 `RegisterHotKey` 作为激活路径。低级键盘 hook 只用于 picker 激活后的 `Esc` / `Enter` / `Space` 控制，以及快捷键录入窗口的按键捕获；不要让低级 hook 同时触发 picker 启动，避免重复启动/关闭 session。
 - 快捷键应要求至少一个修饰键加一个非修饰键，避免误设为普通单键。
 
 ### 构建时间显示

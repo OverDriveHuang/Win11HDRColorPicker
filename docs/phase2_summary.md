@@ -31,7 +31,7 @@ src/powertoys_hdr_prototype/src/modules/colorPicker/ColorPickerUI/ColorPickerUI.
   - token help including HDR tokens
   - `Picker popup format` selector
 - Added sample-size settings using `1x1`, `3x3`, `5x5`, `11x11`, `31x31`, `51x51`, `101x101`.
-- Added shortcut capture with cancel/reset default, plus a low-level keyboard-hook activation fallback.
+- Added shortcut capture with cancel/reset default. Later Stage2 fixes removed low-level keyboard-hook activation fallback; picker activation now uses `RegisterHotKey`, while the low-level hook is limited to active-session Esc/Enter/Space handling and shortcut recording.
 - Added tray icon with open/settings/exit behavior.
 - Added second-precision build timestamp display in both the main picker panel and Settings window.
 - Final default formats:
@@ -58,6 +58,24 @@ dotnet build src/modules/colorPicker/ColorPickerUI/ColorPickerUI.Stage2.csproj -
 
 ```text
 .agent/tmp/release/WinHDRColorPicker-stage2-win-x64.zip
+```
+
+- The standalone public repository was published:
+
+```text
+https://github.com/OverDriveHuang/WinHDRColorPicker
+```
+
+Public repository commit:
+
+```text
+319f1e9 Add standalone HDR color picker prototype
+```
+
+The runnable package is included in that repository at:
+
+```text
+releases/WinHDRColorPicker-stage2-win-x64.zip
 ```
 
 ## Remaining Follow-Up

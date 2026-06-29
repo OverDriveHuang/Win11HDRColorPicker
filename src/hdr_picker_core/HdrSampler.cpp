@@ -7,6 +7,7 @@
 
 #include <winrt/base.h>
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Metadata.h>
 #include <winrt/Windows.Graphics.Capture.h>
 #include <winrt/Windows.Graphics.DirectX.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
@@ -26,6 +27,7 @@ namespace capture = winrt::Windows::Graphics::Capture;
 namespace directx = winrt::Windows::Graphics::DirectX;
 namespace d3d11 = winrt::Windows::Graphics::DirectX::Direct3D11;
 namespace appcap = winrt::Windows::Security::Authorization::AppCapabilityAccess;
+namespace metadata = winrt::Windows::Foundation::Metadata;
 
 namespace hdr
 {
@@ -174,12 +176,38 @@ MonitorSampleTarget GetCurrentMonitorTarget(capture::GraphicsCaptureItem const& 
         std::clamp(y, 0, itemSize.Height - 1),
     };
 }
+
+bool IsCreateFreeThreadedSupported()
+{
+    return metadata::ApiInformation::IsMethodPresent(
+        L"Windows.Graphics.Capture.Direct3D11CaptureFramePool",
+        L"CreateFreeThreaded");
+}
+
+bool IsBorderlessCaptureSupported()
+{
+    return metadata::ApiInformation::IsEnumNamedValuePresent(
+               L"Windows.Graphics.Capture.GraphicsCaptureAccessKind",
+               L"Borderless")
+           && metadata::ApiInformation::IsPropertyPresent(
+               L"Windows.Graphics.Capture.GraphicsCaptureSession",
+               L"IsBorderRequired");
+}
 }
 
 struct HdrSampler::Impl
 {
     winrt::com_ptr<ID3D11Device> D3DDevice;
     d3d11::IDirect3DDevice WinRtDevice{ nullptr };
+    HMONITOR CaptureMonitor = nullptr;
+    bool CaptureBorderless = false;
+    capture::GraphicsCaptureItem CaptureItem{ nullptr };
+    capture::Direct3D11CaptureFramePool FramePool{ nullptr };
+    capture::GraphicsCaptureSession Session{ nullptr };
+    capture::Direct3D11CaptureFramePool::FrameArrived_revoker FrameArrivedRevoker{};
+    winrt::handle FrameEvent;
+    std::mutex FrameMutex;
+    capture::Direct3D11CaptureFrame LastFrame{ nullptr };
 
     void EnsureDevice()
     {
@@ -188,6 +216,75 @@ struct HdrSampler::Impl
             D3DDevice = CreateD3D11Device();
             WinRtDevice = CreateWinRtD3DDevice(D3DDevice);
         }
+    }
+
+    void CloseCapture()
+    {
+        FrameArrivedRevoker.revoke();
+        LastFrame = nullptr;
+
+        if (Session)
+        {
+            Session.Close();
+            Session = nullptr;
+        }
+
+        if (FramePool)
+        {
+            FramePool.Close();
+            FramePool = nullptr;
+        }
+
+        CaptureItem = nullptr;
+        CaptureMonitor = nullptr;
+        CaptureBorderless = false;
+        FrameEvent.close();
+    }
+
+    void EnsureCapture(HMONITOR monitor, bool borderless)
+    {
+        EnsureDevice();
+
+        if (CaptureMonitor == monitor && CaptureBorderless == borderless && FramePool && Session)
+        {
+            return;
+        }
+
+        CloseCapture();
+
+        CaptureMonitor = monitor;
+        CaptureBorderless = borderless;
+        CaptureItem = CreateItemForMonitor(monitor);
+        FrameEvent.attach(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!FrameEvent)
+        {
+            throw std::runtime_error("CreateEventW failed.");
+        }
+
+        FramePool = capture::Direct3D11CaptureFramePool::CreateFreeThreaded(
+            WinRtDevice,
+            directx::DirectXPixelFormat::R16G16B16A16Float,
+            2,
+            CaptureItem.Size());
+        Session = FramePool.CreateCaptureSession(CaptureItem);
+        Session.IsCursorCaptureEnabled(false);
+        if (borderless)
+        {
+            Session.IsBorderRequired(false);
+        }
+
+        FrameArrivedRevoker = FramePool.FrameArrived(winrt::auto_revoke, [this](capture::Direct3D11CaptureFramePool const& sender, winrt::Windows::Foundation::IInspectable const&)
+        {
+            auto frame = sender.TryGetNextFrame();
+            if (frame)
+            {
+                std::scoped_lock lock(FrameMutex);
+                LastFrame = frame;
+                SetEvent(FrameEvent.get());
+            }
+        });
+
+        Session.StartCapture();
     }
 };
 
@@ -198,19 +295,35 @@ HdrSampler::HdrSampler() :
 
 HdrSampler::~HdrSampler()
 {
+    m_impl->CloseCapture();
     delete m_impl;
 }
 
 bool HdrSampler::RequestBorderlessAccess()
 {
+    if (!IsBorderlessCaptureSupported())
+    {
+        return false;
+    }
+
     const auto status = capture::GraphicsCaptureAccess::RequestAccessAsync(capture::GraphicsCaptureAccessKind::Borderless).get();
     return status == appcap::AppCapabilityAccessStatus::Allowed;
+}
+
+HdrCaptureCapabilities HdrSampler::GetCapabilities()
+{
+    HdrCaptureCapabilities capabilities{};
+    capabilities.WgcSupported = capture::GraphicsCaptureSession::IsSupported();
+    capabilities.CreateFreeThreadedSupported = IsCreateFreeThreadedSupported();
+    capabilities.BorderlessSupported = IsBorderlessCaptureSupported();
+    return capabilities;
 }
 
 HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
 {
     HdrColorSample result{};
     result.Status = HdrSampleStatus::CaptureFailed;
+    result.BorderlessRequested = options.RequestBorderless;
 
     if (!IsSupportedSampleSize(options.SampleSize))
     {
@@ -225,10 +338,15 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
         return result;
     }
 
+    if (!IsCreateFreeThreadedSupported())
+    {
+        result.Status = HdrSampleStatus::CaptureFailed;
+        result.StatusMessage = L"Direct3D11CaptureFramePool.CreateFreeThreaded is not supported.";
+        return result;
+    }
+
     try
     {
-        m_impl->EnsureDevice();
-
         POINT cursor{};
         if (!GetCursorPos(&cursor))
         {
@@ -245,54 +363,18 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
             return result;
         }
 
-        auto item = CreateItemForMonitor(monitor);
-        auto target = GetCurrentMonitorTarget(item);
+        m_impl->EnsureCapture(monitor, options.RequestBorderless && IsBorderlessCaptureSupported());
+        result.BorderlessUsed = m_impl->CaptureBorderless;
+
+        auto target = GetCurrentMonitorTarget(m_impl->CaptureItem);
         result.ScreenX = target.Cursor.x;
         result.ScreenY = target.Cursor.y;
         result.CaptureX = target.X;
         result.CaptureY = target.Y;
 
-        auto framePool = capture::Direct3D11CaptureFramePool::CreateFreeThreaded(
-            m_impl->WinRtDevice,
-            directx::DirectXPixelFormat::R16G16B16A16Float,
-            1,
-            item.Size());
-        auto session = framePool.CreateCaptureSession(item);
-        session.IsCursorCaptureEnabled(false);
-        if (options.RequestBorderless)
-        {
-            session.IsBorderRequired(false);
-        }
-
-        winrt::handle frameEvent{ CreateEventW(nullptr, TRUE, FALSE, nullptr) };
-        if (!frameEvent)
-        {
-            throw std::runtime_error("CreateEventW failed.");
-        }
-
-        std::mutex frameMutex;
-        capture::Direct3D11CaptureFrame capturedFrame{ nullptr };
-        auto revoker = framePool.FrameArrived(winrt::auto_revoke, [&](capture::Direct3D11CaptureFramePool const& sender, winrt::Windows::Foundation::IInspectable const&)
-        {
-            auto frame = sender.TryGetNextFrame();
-            if (frame)
-            {
-                std::scoped_lock lock(frameMutex);
-                if (!capturedFrame)
-                {
-                    capturedFrame = frame;
-                    SetEvent(frameEvent.get());
-                }
-            }
-        });
-
-        session.StartCapture();
-        const DWORD waitResult = WaitForSingleObject(frameEvent.get(), static_cast<DWORD>(std::max(options.FrameTimeoutMs, 1)));
+        const DWORD waitResult = WaitForSingleObject(m_impl->FrameEvent.get(), static_cast<DWORD>(std::max(options.FrameTimeoutMs, 1)));
         if (waitResult != WAIT_OBJECT_0)
         {
-            revoker.revoke();
-            session.Close();
-            framePool.Close();
             result.Status = HdrSampleStatus::FrameTimeout;
             result.StatusMessage = L"Timed out waiting for a WGC frame.";
             return result;
@@ -300,8 +382,15 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
 
         capture::Direct3D11CaptureFrame frame{ nullptr };
         {
-            std::scoped_lock lock(frameMutex);
-            frame = capturedFrame;
+            std::scoped_lock lock(m_impl->FrameMutex);
+            frame = m_impl->LastFrame;
+        }
+
+        if (!frame)
+        {
+            result.Status = HdrSampleStatus::FrameTimeout;
+            result.StatusMessage = L"No WGC frame was available.";
+            return result;
         }
 
         auto sourceTexture = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
@@ -309,9 +398,6 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
         sourceTexture->GetDesc(&sourceDesc);
         if (sourceDesc.Format != DXGI_FORMAT_R16G16B16A16_FLOAT)
         {
-            revoker.revoke();
-            session.Close();
-            framePool.Close();
             result.Status = HdrSampleStatus::CaptureFormatUnsupported;
             result.StatusMessage = L"Captured texture format was not R16G16B16A16_FLOAT.";
             return result;
@@ -378,10 +464,6 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
 
         sourceTexture = nullptr;
         frame = nullptr;
-        capturedFrame = nullptr;
-        revoker.revoke();
-        session.Close();
-        framePool.Close();
 
         result.Status = HdrSampleStatus::Ok;
         result.Linear = {
@@ -402,6 +484,7 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
     {
         result.Status = HdrSampleStatus::DeviceLost;
         result.StatusMessage = error.message().c_str();
+        m_impl->CloseCapture();
         m_impl->D3DDevice = nullptr;
         m_impl->WinRtDevice = nullptr;
         return result;
@@ -412,6 +495,11 @@ HdrColorSample HdrSampler::SampleAtCursor(HdrSampleOptions options)
         result.StatusMessage.assign(error.what(), error.what() + std::strlen(error.what()));
         return result;
     }
+}
+
+void HdrSampler::CloseCapture()
+{
+    m_impl->CloseCapture();
 }
 
 const wchar_t* ToString(HdrSampleStatus status)
