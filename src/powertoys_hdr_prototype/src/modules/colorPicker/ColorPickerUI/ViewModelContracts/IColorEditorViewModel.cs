@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.Windows.Media;
 
+using ColorPicker.Hdr;
 using ColorPicker.Models;
 
 namespace ColorPicker.ViewModelContracts
@@ -29,9 +30,11 @@ namespace ColorPicker.ViewModelContracts
 
         ObservableCollection<ColorFormatModel> ColorRepresentations { get; }
 
-        ObservableCollection<Color> ColorsHistory { get; }
+        ObservableCollection<ColorHistoryItem> ColorsHistory { get; }
 
         Color SelectedColor { get; set; }
+
+        HdrColorSample SelectedHdrSample { get; set; }
 
         int SelectedColorIndex { get; set; }
 

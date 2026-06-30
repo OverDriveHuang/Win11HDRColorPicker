@@ -107,7 +107,7 @@
                                 Stroke="{DynamicResource SurfaceStrokeColorDefaultBrush}"
                                 StrokeThickness="1">
                                 <Ellipse.Fill>
-                                    <SolidColorBrush Color="{Binding Path=.}" />
+                                    <SolidColorBrush Color="{Binding Path=Color}" />
                                 </Ellipse.Fill>
                             </Ellipse>
                         </Grid>
@@ -128,7 +128,7 @@
                                             Opacity="0"
                                             StrokeThickness="2">
                                             <Ellipse.Stroke>
-                                                <SolidColorBrush Color="{Binding Path=.}" />
+                                                <SolidColorBrush Color="{Binding Path=Color}" />
                                             </Ellipse.Stroke>
                                         </Ellipse>
                                         <ContentPresenter
@@ -247,7 +247,8 @@
                                 <controls:ColorFormatControl
                                     ColorCopiedNotificationBorder="{Binding ElementName=CopiedBorderIndicator}"
                                     ColorFormatModel="{Binding}"
-                                    SelectedColor="{Binding ElementName=colorEditorControl, Path=DataContext.SelectedColor}" />
+                                    SelectedColor="{Binding ElementName=colorEditorControl, Path=DataContext.SelectedColor}"
+                                    SelectedHdrColor="{Binding ElementName=colorEditorControl, Path=DataContext.SelectedHdrSample}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                         <ItemsControl.ItemsPanel>

@@ -53,6 +53,10 @@ namespace ColorPicker.Hdr
             public int LastBorderlessRequested;
             public int LastBorderlessUsed;
             public int ActiveCapture;
+            public int SdrWhiteLevelAvailable;
+            public int SdrWhiteLevelRaw;
+            public double SdrWhiteLevelNits;
+            public double SdrWhiteLevelScale;
         }
 
         [DllImport("HdrSamplerNative.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -149,12 +153,21 @@ namespace ColorPicker.Hdr
         {
             if (diagnostics.WgcSupported == 0)
             {
-                return "WGC: unsupported\nHDR values will show N/A";
+                return string.Join(
+                    "\n",
+                    "WGC: unsupported",
+                    FormatSdrWhiteLevel(diagnostics),
+                    "HDR values will show N/A");
             }
 
             if (diagnostics.CreateFreeThreadedSupported == 0)
             {
-                return "WGC: supported\nFP16 capture: CreateFreeThreaded unavailable\nHDR values will show N/A";
+                return string.Join(
+                    "\n",
+                    "WGC: supported",
+                    "FP16 capture: CreateFreeThreaded unavailable",
+                    FormatSdrWhiteLevel(diagnostics),
+                    "HDR values will show N/A");
             }
 
             var borderless = diagnostics.BorderlessSupported == 0
@@ -170,8 +183,24 @@ namespace ColorPicker.Hdr
                 "WGC: supported",
                 "FP16 capture: supported",
                 borderless,
+                FormatSdrWhiteLevel(diagnostics),
                 diagnostics.ActiveCapture != 0 ? "Capture session: active" : "Capture session: inactive",
                 $"Last sample: {StatusToText(diagnostics.LastStatus, diagnostics.LastHadHdrData != 0)}");
+        }
+
+        private static string FormatSdrWhiteLevel(NativeDiagnostics diagnostics)
+        {
+            if (diagnostics.SdrWhiteLevelAvailable == 0)
+            {
+                return "SDR white level: unavailable";
+            }
+
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "SDR white level: raw={0}, {1:0.##} nits, scale={2:0.####}x",
+                diagnostics.SdrWhiteLevelRaw,
+                diagnostics.SdrWhiteLevelNits,
+                diagnostics.SdrWhiteLevelScale);
         }
 
         private static string StatusToText(int status, bool hasHdrData)

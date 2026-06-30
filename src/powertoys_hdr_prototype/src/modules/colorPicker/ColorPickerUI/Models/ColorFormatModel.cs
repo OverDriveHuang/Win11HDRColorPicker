@@ -21,6 +21,11 @@ namespace ColorPicker.Models
 
         public string GetColorText(Color color)
         {
+            return GetColorText(color, HdrSampleCache.Current);
+        }
+
+        public string GetColorText(Color color, HdrColorSample hdrSample)
+        {
             if (Convert != null)
             {
                 return Convert(color);
@@ -29,7 +34,7 @@ namespace ColorPicker.Models
             System.Drawing.Color drawingColor = System.Drawing.Color.FromArgb(color.A, color.R, color.G, color.B);
             // get string representation in 2 steps. First replace all color specific number values then in 2nd step replace color name with localisation
             var text = ColorRepresentationHelper.ReplaceName(ColorFormatHelper.GetStringRepresentation(drawingColor, FormatString), drawingColor);
-            return HdrFormatHelper.ContainsHdrToken(text) ? HdrFormatHelper.ReplaceHdrTokens(text, HdrSampleCache.Current) : text;
+            return HdrFormatHelper.ContainsHdrToken(text) ? HdrFormatHelper.ReplaceHdrTokens(text, hdrSample) : text;
         }
     }
 }

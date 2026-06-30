@@ -34,6 +34,29 @@
 
 nits 基准固定为 `1.0 = 80 nits`。这是需求确定项，不再读取 Windows SDR white level 作为默认基准。
 
+### Win10 SDR white level 验证和归一化
+
+在 Windows 10 21H2 + NVIDIA + 外接显示器上，用户已观察到 SDR 图片通过 WGC FP16 采样得到的 `linear RGB` 约为预期 sRGB 反伽马 linear 值的 2 倍，例如白色约为 `(2.0, 2.0, 2.0)`。这不是预期行为，需要先诊断原因，再决定是否做归一化修正。
+
+诊断必须读取当前采样点所在显示器的 SDR white level，而不是主显示器、第一条 display path 或任意全局值。当前显示器应按鼠标位置或实际采样 monitor 匹配到对应 display target 后查询。
+
+首步只把当前显示器的 SDR white level 写入 diagnostics/log，用于实机验证：
+
+- raw SDR white level 值。
+- 换算后的 nits。
+- 相对 80 nits 的倍率。
+- WGC FP16 白点读数与该倍率是否吻合。
+
+如果实机确认 Win10 异常值与 `SDR white level / 80` 一致，则后续可以增加基于当前显示器 SDR white level 的归一化：在受影响环境中将 WGC FP16 采样值除以该倍率，使 SDR 图片白点回到 `linear RGB ~= 1.0`。该修正必须按当前显示器逐点应用，不能使用固定 `2x` 或跨显示器缓存错用。
+
+### 历史色块和 HDR 数据保存
+
+颜色历史不能只保存 SDR `A/R/G/B` 值。每次点击采样并写入历史时，必须同时保存该色块当时对应的 HDR sample 数据，包括 `linear RGB`、`RGB nits`、`Y nits`、`ICtCp` 和用于判断可用性的状态信息。
+
+历史色块、颜色编辑器面板和复制操作必须使用该色块自己保存的 HDR sample 进行 HDR token 格式化，不能使用当前鼠标位置、最近一次吸管采样或全局临时缓存替代。切换不同历史色块时，`linear RGB`、`RGB nits`、`Y nits`、`ICtCp`、`default HDR` 等 HDR 格式的显示值和复制值都必须随所选色块一起变化。
+
+如果某条历史记录没有保存 HDR sample，例如旧版本迁移记录，或采样时 HDR 数据不可用，则该色块的 HDR token 输出应显示 `N/A`。不能复用最近一次可用 HDR sample 来填充旧色块或不可用色块。
+
 ## UI/UX 硬约束
 
 最终产品不重新设计 UI。PowerToys Color Picker 的主界面、吸管交互、颜色编辑器、设置页和“Add custom color format”弹窗应保持原版体验。
@@ -210,6 +233,8 @@ Phase 2 standalone shell 是后台常驻程序，因此必须提供托盘入口�
 5. 输出格式可以在设置中配置，且现有 SDR RGB/HEX 行为不被破坏。
 6. 最终 PowerToys 集成应保持原版 UI/UX，只扩展格式参数能力。
 7. 平均取样必须先平均 linear RGB，再进行 nits 和 ICtCp 派生计算。
+8. 历史色块必须保存点击采样当时的 HDR sample；切换历史色块和复制 HDR 格式时必须使用该色块自己的 HDR 数据。没有保存或不能读取 HDR 数据的色块必须显示/复制 `N/A`，不能沿用最近一次吸管采样值。
+9. Windows 10 SDR 图片出现 WGC FP16 读数约 2 倍时，必须先通过当前显示器 SDR white level diagnostics 验证倍率来源；如果确认倍率吻合，修正应按当前显示器的 `SDR white level / 80` 做归一化，不能使用固定倍率或取错显示器。
 
 ## 待决策问题
 

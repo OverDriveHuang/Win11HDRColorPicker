@@ -11,6 +11,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
+using ColorPicker.Hdr;
 using ColorPicker.Helpers;
 using ColorPicker.Models;
 
@@ -25,6 +26,8 @@ namespace ColorPicker.Controls
 
         public static readonly DependencyProperty SelectedColorProperty = DependencyProperty.Register("SelectedColor", typeof(Color), typeof(ColorFormatControl), new PropertyMetadata(SelectedColorPropertyChanged));
 
+        public static readonly DependencyProperty SelectedHdrColorProperty = DependencyProperty.Register("SelectedHdrColor", typeof(HdrColorSample), typeof(ColorFormatControl), new PropertyMetadata(SelectedHdrColorPropertyChanged));
+
         public static readonly DependencyProperty SelectedColorCopyHelperTextProperty = DependencyProperty.Register("SelectedColorCopyHelperText", typeof(string), typeof(ColorFormatControl));
 
         public static readonly DependencyProperty ColorCopiedNotificationBorderProperty = DependencyProperty.Register("ColorCopiedNotificationBorder", typeof(FrameworkElement), typeof(ColorFormatControl), new PropertyMetadata(ColorCopiedBorderPropertyChanged));
@@ -37,6 +40,12 @@ namespace ColorPicker.Controls
         {
             get { return (Color)GetValue(SelectedColorProperty); }
             set { SetValue(SelectedColorProperty, value); }
+        }
+
+        public HdrColorSample SelectedHdrColor
+        {
+            get { return (HdrColorSample)GetValue(SelectedHdrColorProperty); }
+            set { SetValue(SelectedHdrColorProperty, value); }
         }
 
         public ColorFormatModel ColorFormatModel
@@ -78,17 +87,33 @@ namespace ColorPicker.Controls
 
         private static void SelectedColorPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            var self = (ColorFormatControl)d;
-            var colorText = self.ColorFormatModel.GetColorText((Color)e.NewValue);
-            self.ColorTextRepresentationTextBlock.Text = colorText;
-            self.ColorTextRepresentationTextBlock.ToolTip = colorText;
-            self.SelectedColorCopyHelperText = string.Format(CultureInfo.InvariantCulture, "{0} {1}", self.ColorFormatModel.FormatName, colorText);
+            ((ColorFormatControl)d).RefreshColorText();
+        }
+
+        private static void SelectedHdrColorPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((ColorFormatControl)d).RefreshColorText();
+        }
+
+        private void RefreshColorText()
+        {
+            if (ColorFormatModel == null)
+            {
+                return;
+            }
+
+            var colorText = ColorFormatModel.GetColorText(SelectedColor, SelectedHdrColor);
+            ColorTextRepresentationTextBlock.Text = colorText;
+            ColorTextRepresentationTextBlock.ToolTip = colorText;
+            SelectedColorCopyHelperText = string.Format(CultureInfo.InvariantCulture, "{0} {1}", ColorFormatModel.FormatName, colorText);
         }
 
         private static void ColorFormatModelPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            ((ColorFormatControl)d).FormatNameTextBlock.Text = ((ColorFormatModel)e.NewValue).FormatName;
-            ((ColorFormatControl)d).FormatNameTextBlock.ToolTip = ((ColorFormatModel)e.NewValue).FormatName;
+            var self = (ColorFormatControl)d;
+            self.FormatNameTextBlock.Text = ((ColorFormatModel)e.NewValue).FormatName;
+            self.FormatNameTextBlock.ToolTip = ((ColorFormatModel)e.NewValue).FormatName;
+            self.RefreshColorText();
         }
 
         private static void ColorCopiedBorderPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

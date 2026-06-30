@@ -38,12 +38,12 @@ namespace ColorPicker.Helpers
             {
                 case GroupExportedColorsBy.Color:
                     {
-                        foreach (Color color in (IList)colorsToExport)
+                        foreach (var historyItem in EnumerateHistoryItems(colorsToExport))
                         {
                             var tmp = new Dictionary<string, string>();
                             foreach (var colorFormatModel in colorFormatModels)
                             {
-                                var colorInSpecificFormat = colorFormatModel.GetColorText(color);
+                                var colorInSpecificFormat = colorFormatModel.GetColorText(historyItem.Color, historyItem.HdrSample);
                                 if (colorFormatModel.FormatName == "HEX")
                                 {
                                     colorInSpecificFormat = "#" + colorInSpecificFormat;
@@ -68,9 +68,9 @@ namespace ColorPicker.Helpers
                         {
                             var tmp = new Dictionary<string, string>();
                             i = 1;
-                            foreach (Color color in (IList)colorsToExport)
+                            foreach (var historyItem in EnumerateHistoryItems(colorsToExport))
                             {
-                                var colorInSpecificFormat = colorFormatModel.GetColorText(color);
+                                var colorInSpecificFormat = colorFormatModel.GetColorText(historyItem.Color, historyItem.HdrSample);
                                 if (colorFormatModel.FormatName == "HEX")
                                 {
                                     colorInSpecificFormat = "#" + colorInSpecificFormat;
@@ -92,6 +92,21 @@ namespace ColorPicker.Helpers
             }
 
             return colors;
+        }
+
+        private static IEnumerable<ColorHistoryItem> EnumerateHistoryItems(IList colorsToExport)
+        {
+            foreach (var item in colorsToExport)
+            {
+                if (item is ColorHistoryItem historyItem)
+                {
+                    yield return historyItem;
+                }
+                else if (item is Color color)
+                {
+                    yield return ColorHistoryItem.FromColor(color);
+                }
+            }
         }
 
         public static string ToTxt(this Dictionary<string, Dictionary<string, string>> source, char separator)

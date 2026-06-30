@@ -1,6 +1,8 @@
 #include "HdrSampler.h"
 
+#include <cwchar>
 #include <objbase.h>
+#include <vector>
 #include <winrt/base.h>
 
 extern "C"
@@ -47,15 +49,99 @@ struct HdrNativeDiagnostics
     int LastBorderlessRequested;
     int LastBorderlessUsed;
     int ActiveCapture;
+    int SdrWhiteLevelAvailable;
+    int SdrWhiteLevelRaw;
+    double SdrWhiteLevelNits;
+    double SdrWhiteLevelScale;
 };
 
 static hdr::HdrSampler g_sampler;
 static bool g_borderlessAccessChecked = false;
 static bool g_borderlessAllowed = false;
 static bool g_activeCapture = false;
-static HdrNativeDiagnostics g_diagnostics{ 0, 0, 0, 0, 0, -3, 0, 0, 0, 0 };
+static HdrNativeDiagnostics g_diagnostics{ 0, 0, 0, 0, 0, -3, 0, 0, 0, 0, 0, 0, 0.0, 0.0 };
 
-static hdr::HdrCaptureCapabilities RefreshCapabilities()
+static void RefreshSdrWhiteLevelDiagnostics()
+{
+    g_diagnostics.SdrWhiteLevelAvailable = 0;
+    g_diagnostics.SdrWhiteLevelRaw = 0;
+    g_diagnostics.SdrWhiteLevelNits = 0.0;
+    g_diagnostics.SdrWhiteLevelScale = 0.0;
+
+    POINT cursor{};
+    if (!GetCursorPos(&cursor))
+    {
+        return;
+    }
+
+    const HMONITOR monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+    if (!monitor)
+    {
+        return;
+    }
+
+    MONITORINFOEXW monitorInfo{};
+    monitorInfo.cbSize = sizeof(monitorInfo);
+    if (!GetMonitorInfoW(monitor, &monitorInfo))
+    {
+        return;
+    }
+
+    UINT32 pathCount = 0;
+    UINT32 modeCount = 0;
+    UINT32 queryFlags = QDC_ONLY_ACTIVE_PATHS | QDC_VIRTUAL_MODE_AWARE;
+    if (GetDisplayConfigBufferSizes(queryFlags, &pathCount, &modeCount) != ERROR_SUCCESS)
+    {
+        queryFlags = QDC_ONLY_ACTIVE_PATHS;
+        if (GetDisplayConfigBufferSizes(queryFlags, &pathCount, &modeCount) != ERROR_SUCCESS)
+        {
+            return;
+        }
+    }
+
+    std::vector<DISPLAYCONFIG_PATH_INFO> paths(pathCount);
+    std::vector<DISPLAYCONFIG_MODE_INFO> modes(modeCount);
+    if (QueryDisplayConfig(queryFlags, &pathCount, paths.data(), &modeCount, modes.data(), nullptr) != ERROR_SUCCESS)
+    {
+        return;
+    }
+
+    for (UINT32 index = 0; index < pathCount; ++index)
+    {
+        DISPLAYCONFIG_SOURCE_DEVICE_NAME sourceName{};
+        sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+        sourceName.header.size = sizeof(sourceName);
+        sourceName.header.adapterId = paths[index].sourceInfo.adapterId;
+        sourceName.header.id = paths[index].sourceInfo.id;
+        if (DisplayConfigGetDeviceInfo(&sourceName.header) != ERROR_SUCCESS)
+        {
+            continue;
+        }
+
+        if (_wcsicmp(sourceName.viewGdiDeviceName, monitorInfo.szDevice) != 0)
+        {
+            continue;
+        }
+
+        DISPLAYCONFIG_SDR_WHITE_LEVEL sdrWhiteLevel{};
+        sdrWhiteLevel.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL;
+        sdrWhiteLevel.header.size = sizeof(sdrWhiteLevel);
+        sdrWhiteLevel.header.adapterId = paths[index].targetInfo.adapterId;
+        sdrWhiteLevel.header.id = paths[index].targetInfo.id;
+        if (DisplayConfigGetDeviceInfo(&sdrWhiteLevel.header) != ERROR_SUCCESS)
+        {
+            return;
+        }
+
+        g_diagnostics.SdrWhiteLevelAvailable = 1;
+        g_diagnostics.SdrWhiteLevelRaw = static_cast<int>(sdrWhiteLevel.SDRWhiteLevel);
+        g_diagnostics.SdrWhiteLevelScale = static_cast<double>(sdrWhiteLevel.SDRWhiteLevel) / 1000.0;
+        g_diagnostics.SdrWhiteLevelNits = g_diagnostics.SdrWhiteLevelScale * 80.0;
+        return;
+    }
+}
+
+static hdr::HdrCaptureCapabilities RefreshCapabilities(bool refreshSdrWhiteLevel)
 {
     const auto capabilities = g_sampler.GetCapabilities();
     g_diagnostics.WgcSupported = capabilities.WgcSupported ? 1 : 0;
@@ -64,6 +150,11 @@ static hdr::HdrCaptureCapabilities RefreshCapabilities()
     g_diagnostics.BorderlessAccessChecked = g_borderlessAccessChecked ? 1 : 0;
     g_diagnostics.BorderlessAllowed = g_borderlessAllowed ? 1 : 0;
     g_diagnostics.ActiveCapture = g_activeCapture ? 1 : 0;
+    if (refreshSdrWhiteLevel)
+    {
+        RefreshSdrWhiteLevelDiagnostics();
+    }
+
     return capabilities;
 }
 
@@ -88,7 +179,7 @@ __declspec(dllexport) int HdrSampler_SampleAtCursor(int sampleSize, int requestB
             }
         }
 
-        const auto capabilities = RefreshCapabilities();
+        const auto capabilities = RefreshCapabilities(true);
         if (requestBorderless && capabilities.BorderlessSupported && !g_borderlessAccessChecked)
         {
             g_borderlessAllowed = g_sampler.RequestBorderlessAccess();
@@ -183,7 +274,7 @@ __declspec(dllexport) int HdrSampler_GetDiagnostics(HdrNativeDiagnostics* output
             }
         }
 
-        RefreshCapabilities();
+        RefreshCapabilities(g_diagnostics.LastStatus == -3);
         *output = g_diagnostics;
         return 0;
     }
@@ -199,6 +290,10 @@ __declspec(dllexport) int HdrSampler_GetDiagnostics(HdrNativeDiagnostics* output
         output->LastBorderlessRequested = 0;
         output->LastBorderlessUsed = 0;
         output->ActiveCapture = 0;
+        output->SdrWhiteLevelAvailable = 0;
+        output->SdrWhiteLevelRaw = 0;
+        output->SdrWhiteLevelNits = 0.0;
+        output->SdrWhiteLevelScale = 0.0;
         return -2;
     }
 }

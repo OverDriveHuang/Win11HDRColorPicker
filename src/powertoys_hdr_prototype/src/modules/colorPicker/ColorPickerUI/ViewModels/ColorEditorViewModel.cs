@@ -7,13 +7,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows.Input;
 using System.Windows.Media;
 
 using ColorPicker.Common;
+using ColorPicker.Hdr;
 using ColorPicker.Helpers;
 using ColorPicker.Models;
 using ColorPicker.Settings;
@@ -29,6 +29,7 @@ namespace ColorPicker.ViewModels
         private readonly IUserSettings _userSettings;
         private readonly List<ColorFormatModel> _allColorRepresentations = new List<ColorFormatModel>();
         private Color _selectedColor;
+        private HdrColorSample _selectedHdrSample;
         private bool _initializing;
         private int _selectedColorIndex;
 
@@ -43,12 +44,15 @@ namespace ColorPicker.ViewModels
             ExportColorsGroupedByFormatCommand = new RelayCommand(ExportSelectedColorsByFormat);
             SelectedColorChangedCommand = new RelayCommand((newColor) =>
             {
-                if (ColorsHistory.Contains((Color)newColor))
+                var color = (Color)newColor;
+                var newItem = ColorHistoryItem.FromColor(color);
+                var existing = ColorsHistory.FirstOrDefault(item => item.HasSameSample(newItem));
+                if (existing != null)
                 {
-                    ColorsHistory.Remove((Color)newColor);
+                    ColorsHistory.Remove(existing);
                 }
 
-                ColorsHistory.Insert(0, (Color)newColor);
+                ColorsHistory.Insert(0, newItem);
                 SelectedColorIndex = 0;
             });
             ColorsHistory.CollectionChanged += ColorsHistory_CollectionChanged;
@@ -75,7 +79,7 @@ namespace ColorPicker.ViewModels
 
         public ICommand HideColorFormatCommand { get; }
 
-        public ObservableCollection<Color> ColorsHistory { get; } = new ObservableCollection<Color>();
+        public ObservableCollection<ColorHistoryItem> ColorsHistory { get; } = new ObservableCollection<ColorHistoryItem>();
 
         public ObservableCollection<ColorFormatModel> ColorRepresentations { get; } = new ObservableCollection<ColorFormatModel>();
 
@@ -93,6 +97,20 @@ namespace ColorPicker.ViewModels
             }
         }
 
+        public HdrColorSample SelectedHdrSample
+        {
+            get
+            {
+                return _selectedHdrSample;
+            }
+
+            set
+            {
+                _selectedHdrSample = value;
+                OnPropertyChanged();
+            }
+        }
+
         public int SelectedColorIndex
         {
             get
@@ -103,9 +121,15 @@ namespace ColorPicker.ViewModels
             set
             {
                 _selectedColorIndex = value;
-                if (value >= 0)
+                if (value >= 0 && value < ColorsHistory.Count)
                 {
-                    SelectedColor = ColorsHistory[_selectedColorIndex];
+                    var selected = ColorsHistory[_selectedColorIndex];
+                    SelectedColor = selected.Color;
+                    SelectedHdrSample = selected.HdrSample;
+                }
+                else
+                {
+                    SelectedHdrSample = null;
                 }
 
                 OnPropertyChanged();
@@ -120,14 +144,7 @@ namespace ColorPicker.ViewModels
 
             foreach (var item in _userSettings.ColorHistory)
             {
-                var parts = item.Split('|');
-                ColorsHistory.Add(new Color()
-                {
-                    A = byte.Parse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture),
-                    R = byte.Parse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture),
-                    G = byte.Parse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture),
-                    B = byte.Parse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture),
-                });
+                ColorsHistory.Add(ColorHistoryItem.Parse(item));
                 SelectedColorIndex = 0;
             }
 
@@ -141,7 +158,7 @@ namespace ColorPicker.ViewModels
                 _userSettings.ColorHistory.ClearWithoutNotification();
                 foreach (var item in ColorsHistory)
                 {
-                    _userSettings.ColorHistory.AddWithoutNotification(item.A + "|" + item.R + "|" + item.G + "|" + item.B);
+                    _userSettings.ColorHistory.AddWithoutNotification(item.Serialize());
                 }
 
                 _userSettings.ColorHistory.ReleaseNotification();
@@ -150,7 +167,7 @@ namespace ColorPicker.ViewModels
 
         private void DeleteSelectedColors(object selectedColors)
         {
-            var colorsToRemove = ((IList)selectedColors).OfType<Color>().ToList();
+            var colorsToRemove = ((IList)selectedColors).OfType<ColorHistoryItem>().ToList();
             var indicesToRemove = colorsToRemove.Select(color => ColorsHistory.IndexOf(color)).ToList();
 
             foreach (var color in colorsToRemove)

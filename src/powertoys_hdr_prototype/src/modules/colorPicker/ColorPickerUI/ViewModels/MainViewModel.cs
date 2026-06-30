@@ -12,6 +12,7 @@ using ColorPicker.Common;
 using ColorPicker.Hdr;
 using ColorPicker.Helpers;
 using ColorPicker.Keyboard;
+using ColorPicker.Models;
 using ColorPicker.Mouse;
 using ColorPicker.Settings;
 using ColorPicker.ViewModelContracts;
@@ -222,15 +223,23 @@ namespace ColorPicker.ViewModels
 
         private void UpdateColorHistory(string color)
         {
-            int oldIndex = _userSettings.ColorHistory.IndexOf(color);
+            var newItem = ColorHistoryItem.Parse(color);
+            int oldIndex = -1;
+            for (int index = 0; index < _userSettings.ColorHistory.Count; ++index)
+            {
+                if (ColorHistoryItem.Parse(_userSettings.ColorHistory[index]).HasSameSample(newItem))
+                {
+                    oldIndex = index;
+                    break;
+                }
+            }
+
             if (oldIndex != -1)
             {
-                _userSettings.ColorHistory.Move(oldIndex, 0);
+                _userSettings.ColorHistory.RemoveAt(oldIndex);
             }
-            else
-            {
-                _userSettings.ColorHistory.Insert(0, color);
-            }
+
+            _userSettings.ColorHistory.Insert(0, color);
 
             if (_userSettings.ColorHistory.Count > _userSettings.ColorHistoryLimit.Value)
             {
@@ -241,7 +250,7 @@ namespace ColorPicker.ViewModels
         private string GetColorString()
         {
             var color = ((SolidColorBrush)ColorBrush).Color;
-            return color.A + "|" + color.R + "|" + color.G + "|" + color.B;
+            return ColorHistoryItem.FromColor(color, _hdrColorSample).Serialize();
         }
 
         private void SetColorDetails(System.Drawing.Color color)
