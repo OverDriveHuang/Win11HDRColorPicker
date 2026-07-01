@@ -47,6 +47,15 @@ nits 基准固定为 `1.0 = 80 nits`。这是需求确定项，不再读取 Wind
 - 相对 80 nits 的倍率。
 - WGC FP16 白点读数与该倍率是否吻合。
 
+由于多显示器环境下诊断值必须能归属到具体显示器，diagnostics/log 还必须输出当前鼠标所在显示器的身份信息：
+
+- GDI display device name，例如 `\\.\DISPLAY1`。
+- Windows 暴露的 monitor friendly name，如可读。
+- 刷新诊断时的 cursor position。
+- 当前 monitor bounds。
+
+设置页里的 diagnostics 文本必须提供 `Copy` 按钮，便于把完整诊断直接粘贴到 GitHub issue 或调试记录中。`Refresh` 应按当前鼠标所在显示器强制重读诊断，而不是复用首次读取值。
+
 如果实机确认 Win10 异常值与 `SDR white level / 80` 一致，则后续可以增加基于当前显示器 SDR white level 的归一化：在受影响环境中将 WGC FP16 采样值除以该倍率，使 SDR 图片白点回到 `linear RGB ~= 1.0`。该修正必须按当前显示器逐点应用，不能使用固定 `2x` 或跨显示器缓存错用。
 
 ### 历史色块和 HDR 数据保存

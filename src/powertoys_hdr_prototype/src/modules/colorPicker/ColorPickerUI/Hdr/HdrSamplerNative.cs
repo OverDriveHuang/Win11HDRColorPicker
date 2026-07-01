@@ -40,7 +40,7 @@ namespace ColorPicker.Hdr
             public int BorderlessUsed;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         private struct NativeDiagnostics
         {
             public int WgcSupported;
@@ -57,6 +57,33 @@ namespace ColorPicker.Hdr
             public int SdrWhiteLevelRaw;
             public double SdrWhiteLevelNits;
             public double SdrWhiteLevelScale;
+            public int DxgiOutputAvailable;
+            public int DxgiBitsPerColor;
+            public int DxgiColorSpace;
+            public int DxgiHdrColorSpace;
+            public double DxgiMinLuminance;
+            public double DxgiMaxLuminance;
+            public double DxgiMaxFullFrameLuminance;
+            public int AdvancedColorInfoAvailable;
+            public int AdvancedColorSupported;
+            public int AdvancedColorEnabled;
+            public int WideColorEnforced;
+            public int AdvancedColorForceDisabled;
+            public int AdvancedColorEncoding;
+            public int AdvancedColorBitsPerChannel;
+            public int MonitorInfoAvailable;
+            public int MonitorLeft;
+            public int MonitorTop;
+            public int MonitorRight;
+            public int MonitorBottom;
+            public int CursorX;
+            public int CursorY;
+
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+            public string MonitorDeviceName;
+
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string MonitorFriendlyName;
         }
 
         [DllImport("HdrSamplerNative.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -156,7 +183,10 @@ namespace ColorPicker.Hdr
                 return string.Join(
                     "\n",
                     "WGC: unsupported",
+                    FormatMonitor(diagnostics),
                     FormatSdrWhiteLevel(diagnostics),
+                    FormatDxgiOutput(diagnostics),
+                    FormatAdvancedColor(diagnostics),
                     "HDR values will show N/A");
             }
 
@@ -166,7 +196,10 @@ namespace ColorPicker.Hdr
                     "\n",
                     "WGC: supported",
                     "FP16 capture: CreateFreeThreaded unavailable",
+                    FormatMonitor(diagnostics),
                     FormatSdrWhiteLevel(diagnostics),
+                    FormatDxgiOutput(diagnostics),
+                    FormatAdvancedColor(diagnostics),
                     "HDR values will show N/A");
             }
 
@@ -183,9 +216,36 @@ namespace ColorPicker.Hdr
                 "WGC: supported",
                 "FP16 capture: supported",
                 borderless,
+                FormatMonitor(diagnostics),
                 FormatSdrWhiteLevel(diagnostics),
+                FormatDxgiOutput(diagnostics),
+                FormatAdvancedColor(diagnostics),
                 diagnostics.ActiveCapture != 0 ? "Capture session: active" : "Capture session: inactive",
                 $"Last sample: {StatusToText(diagnostics.LastStatus, diagnostics.LastHadHdrData != 0)}");
+        }
+
+        private static string FormatMonitor(NativeDiagnostics diagnostics)
+        {
+            if (diagnostics.MonitorInfoAvailable == 0)
+            {
+                return "Monitor: unavailable";
+            }
+
+            var friendlyName = string.IsNullOrWhiteSpace(diagnostics.MonitorFriendlyName)
+                ? "unknown"
+                : diagnostics.MonitorFriendlyName;
+
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Monitor: {0}, name={1}, cursor=({2},{3}), bounds=[{4},{5},{6},{7}]",
+                diagnostics.MonitorDeviceName,
+                friendlyName,
+                diagnostics.CursorX,
+                diagnostics.CursorY,
+                diagnostics.MonitorLeft,
+                diagnostics.MonitorTop,
+                diagnostics.MonitorRight,
+                diagnostics.MonitorBottom);
         }
 
         private static string FormatSdrWhiteLevel(NativeDiagnostics diagnostics)
@@ -201,6 +261,85 @@ namespace ColorPicker.Hdr
                 diagnostics.SdrWhiteLevelRaw,
                 diagnostics.SdrWhiteLevelNits,
                 diagnostics.SdrWhiteLevelScale);
+        }
+
+        private static string FormatDxgiOutput(NativeDiagnostics diagnostics)
+        {
+            if (diagnostics.DxgiOutputAvailable == 0)
+            {
+                return "DXGI output: unavailable";
+            }
+
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "DXGI output: bpc={0}, colorSpace={1} ({2}), HDR={3}, nits=[min={4:0.####}, max={5:0.####}, full={6:0.####}]",
+                diagnostics.DxgiBitsPerColor,
+                DxgiColorSpaceToText(diagnostics.DxgiColorSpace),
+                diagnostics.DxgiColorSpace,
+                diagnostics.DxgiHdrColorSpace != 0 ? "yes" : "no",
+                diagnostics.DxgiMinLuminance,
+                diagnostics.DxgiMaxLuminance,
+                diagnostics.DxgiMaxFullFrameLuminance);
+        }
+
+        private static string FormatAdvancedColor(NativeDiagnostics diagnostics)
+        {
+            if (diagnostics.AdvancedColorInfoAvailable == 0)
+            {
+                return "Advanced color: unavailable";
+            }
+
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Advanced color: supported={0}, enabled={1}, wide={2}, forceDisabled={3}, encoding={4} ({5}), bpc={6}",
+                YesNo(diagnostics.AdvancedColorSupported),
+                YesNo(diagnostics.AdvancedColorEnabled),
+                YesNo(diagnostics.WideColorEnforced),
+                YesNo(diagnostics.AdvancedColorForceDisabled),
+                AdvancedColorEncodingToText(diagnostics.AdvancedColorEncoding),
+                diagnostics.AdvancedColorEncoding,
+                diagnostics.AdvancedColorBitsPerChannel);
+        }
+
+        private static string YesNo(int value)
+        {
+            return value != 0 ? "yes" : "no";
+        }
+
+        private static string DxgiColorSpaceToText(int value)
+        {
+            switch (value)
+            {
+                case 0:
+                    return "RGB_FULL_G22_NONE_P709";
+                case 1:
+                    return "RGB_FULL_G10_NONE_P709";
+                case 12:
+                    return "RGB_FULL_G2084_NONE_P2020";
+                case 17:
+                    return "RGB_FULL_G22_NONE_P2020";
+                default:
+                    return "Unknown";
+            }
+        }
+
+        private static string AdvancedColorEncodingToText(int value)
+        {
+            switch (value)
+            {
+                case 0:
+                    return "RGB";
+                case 1:
+                    return "YCbCr444";
+                case 2:
+                    return "YCbCr422";
+                case 3:
+                    return "YCbCr420";
+                case 4:
+                    return "Intensity";
+                default:
+                    return "Unknown";
+            }
         }
 
         private static string StatusToText(int status, bool hasHdrData)

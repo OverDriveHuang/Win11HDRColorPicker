@@ -54,10 +54,10 @@ dotnet build src/modules/colorPicker/ColorPickerUI/ColorPickerUI.Stage2.csproj -
 %LOCALAPPDATA%\PowerToysHDRColorPicker\stage2-settings.json
 ```
 
-- Self-contained `win-x64` release package was produced under the task-local temporary release directory:
+- Self-contained `win-x64` release packages are distributed through GitHub Releases, not as tracked zip files in the repository.
 
 ```text
-.agent/tmp/release/WinHDRColorPicker-stage2-win-x64.zip
+https://github.com/OverDriveHuang/WinHDRColorPicker/releases
 ```
 
 - The standalone public repository was published:
@@ -72,10 +72,10 @@ Public repository commit:
 319f1e9 Add standalone HDR color picker prototype
 ```
 
-The runnable package is included in that repository at:
+Runnable packages are attached to GitHub Releases:
 
 ```text
-releases/WinHDRColorPicker-stage2-win-x64.zip
+https://github.com/OverDriveHuang/WinHDRColorPicker/releases
 ```
 
 ## Remaining Follow-Up

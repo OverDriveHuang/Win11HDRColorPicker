@@ -8,9 +8,9 @@ This repository contains the completed Phase 2 standalone prototype. It is not i
 
 ## Download
 
-The runnable self-contained Windows x64 package is included here:
+Download the latest self-contained Windows x64 package from GitHub Releases:
 
-`releases/WinHDRColorPicker-stage2-win-x64.zip`
+https://github.com/OverDriveHuang/WinHDRColorPicker/releases
 
 Unzip it and run:
 

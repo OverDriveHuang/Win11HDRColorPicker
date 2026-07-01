@@ -1,4 +1,5 @@
 .vs/
+.agent/
 packages/
 x64/
 ARM64/
@@ -9,6 +10,8 @@ bin/
 obj/
 stage2-bin/
 artifacts/
+releases/
+WinHDRColorPicker-*.zip
 *.user
 *.suo
 *.VC.db

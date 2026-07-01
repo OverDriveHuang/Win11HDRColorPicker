@@ -1,6 +1,7 @@
 #include "HdrSampler.h"
 
 #include <cwchar>
+#include <dxgi1_6.h>
 #include <objbase.h>
 #include <vector>
 #include <winrt/base.h>
@@ -53,20 +54,132 @@ struct HdrNativeDiagnostics
     int SdrWhiteLevelRaw;
     double SdrWhiteLevelNits;
     double SdrWhiteLevelScale;
+    int DxgiOutputAvailable;
+    int DxgiBitsPerColor;
+    int DxgiColorSpace;
+    int DxgiHdrColorSpace;
+    double DxgiMinLuminance;
+    double DxgiMaxLuminance;
+    double DxgiMaxFullFrameLuminance;
+    int AdvancedColorInfoAvailable;
+    int AdvancedColorSupported;
+    int AdvancedColorEnabled;
+    int WideColorEnforced;
+    int AdvancedColorForceDisabled;
+    int AdvancedColorEncoding;
+    int AdvancedColorBitsPerChannel;
+    int MonitorInfoAvailable;
+    int MonitorLeft;
+    int MonitorTop;
+    int MonitorRight;
+    int MonitorBottom;
+    int CursorX;
+    int CursorY;
+    wchar_t MonitorDeviceName[32];
+    wchar_t MonitorFriendlyName[128];
 };
 
 static hdr::HdrSampler g_sampler;
 static bool g_borderlessAccessChecked = false;
 static bool g_borderlessAllowed = false;
 static bool g_activeCapture = false;
-static HdrNativeDiagnostics g_diagnostics{ 0, 0, 0, 0, 0, -3, 0, 0, 0, 0, 0, 0, 0.0, 0.0 };
+static HdrNativeDiagnostics g_diagnostics = []
+{
+    HdrNativeDiagnostics diagnostics{};
+    diagnostics.LastStatus = -3;
+    diagnostics.DxgiColorSpace = -1;
+    diagnostics.AdvancedColorEncoding = -1;
+    return diagnostics;
+}();
 
-static void RefreshSdrWhiteLevelDiagnostics()
+static void ResetDisplayDiagnostics()
 {
     g_diagnostics.SdrWhiteLevelAvailable = 0;
     g_diagnostics.SdrWhiteLevelRaw = 0;
     g_diagnostics.SdrWhiteLevelNits = 0.0;
     g_diagnostics.SdrWhiteLevelScale = 0.0;
+    g_diagnostics.DxgiOutputAvailable = 0;
+    g_diagnostics.DxgiBitsPerColor = 0;
+    g_diagnostics.DxgiColorSpace = -1;
+    g_diagnostics.DxgiHdrColorSpace = 0;
+    g_diagnostics.DxgiMinLuminance = 0.0;
+    g_diagnostics.DxgiMaxLuminance = 0.0;
+    g_diagnostics.DxgiMaxFullFrameLuminance = 0.0;
+    g_diagnostics.AdvancedColorInfoAvailable = 0;
+    g_diagnostics.AdvancedColorSupported = 0;
+    g_diagnostics.AdvancedColorEnabled = 0;
+    g_diagnostics.WideColorEnforced = 0;
+    g_diagnostics.AdvancedColorForceDisabled = 0;
+    g_diagnostics.AdvancedColorEncoding = -1;
+    g_diagnostics.AdvancedColorBitsPerChannel = 0;
+    g_diagnostics.MonitorInfoAvailable = 0;
+    g_diagnostics.MonitorLeft = 0;
+    g_diagnostics.MonitorTop = 0;
+    g_diagnostics.MonitorRight = 0;
+    g_diagnostics.MonitorBottom = 0;
+    g_diagnostics.CursorX = 0;
+    g_diagnostics.CursorY = 0;
+    g_diagnostics.MonitorDeviceName[0] = L'\0';
+    g_diagnostics.MonitorFriendlyName[0] = L'\0';
+}
+
+static void RefreshDxgiOutputDiagnostics(HMONITOR monitor)
+{
+    winrt::com_ptr<IDXGIFactory1> factory;
+    if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), factory.put_void())))
+    {
+        return;
+    }
+
+    for (UINT adapterIndex = 0;; ++adapterIndex)
+    {
+        winrt::com_ptr<IDXGIAdapter1> adapter;
+        if (factory->EnumAdapters1(adapterIndex, adapter.put()) != S_OK)
+        {
+            break;
+        }
+
+        for (UINT outputIndex = 0;; ++outputIndex)
+        {
+            winrt::com_ptr<IDXGIOutput> output;
+            if (adapter->EnumOutputs(outputIndex, output.put()) != S_OK)
+            {
+                break;
+            }
+
+            DXGI_OUTPUT_DESC outputDesc{};
+            if (FAILED(output->GetDesc(&outputDesc)) || outputDesc.Monitor != monitor)
+            {
+                continue;
+            }
+
+            winrt::com_ptr<IDXGIOutput6> output6;
+            if (FAILED(output->QueryInterface(output6.put())))
+            {
+                return;
+            }
+
+            DXGI_OUTPUT_DESC1 desc1{};
+            if (FAILED(output6->GetDesc1(&desc1)))
+            {
+                return;
+            }
+
+            g_diagnostics.DxgiOutputAvailable = 1;
+            g_diagnostics.DxgiBitsPerColor = static_cast<int>(desc1.BitsPerColor);
+            g_diagnostics.DxgiColorSpace = static_cast<int>(desc1.ColorSpace);
+            g_diagnostics.DxgiHdrColorSpace = desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 ? 1 : 0;
+            g_diagnostics.DxgiMinLuminance = static_cast<double>(desc1.MinLuminance);
+            g_diagnostics.DxgiMaxLuminance = static_cast<double>(desc1.MaxLuminance);
+            g_diagnostics.DxgiMaxFullFrameLuminance = static_cast<double>(desc1.MaxFullFrameLuminance);
+            return;
+        }
+    }
+}
+
+static void RefreshDisplayDiagnostics()
+{
+    ResetDisplayDiagnostics();
 
     POINT cursor{};
     if (!GetCursorPos(&cursor))
@@ -80,12 +193,23 @@ static void RefreshSdrWhiteLevelDiagnostics()
         return;
     }
 
+    RefreshDxgiOutputDiagnostics(monitor);
+
     MONITORINFOEXW monitorInfo{};
     monitorInfo.cbSize = sizeof(monitorInfo);
     if (!GetMonitorInfoW(monitor, &monitorInfo))
     {
         return;
     }
+
+    g_diagnostics.MonitorInfoAvailable = 1;
+    g_diagnostics.MonitorLeft = monitorInfo.rcMonitor.left;
+    g_diagnostics.MonitorTop = monitorInfo.rcMonitor.top;
+    g_diagnostics.MonitorRight = monitorInfo.rcMonitor.right;
+    g_diagnostics.MonitorBottom = monitorInfo.rcMonitor.bottom;
+    g_diagnostics.CursorX = cursor.x;
+    g_diagnostics.CursorY = cursor.y;
+    wcsncpy_s(g_diagnostics.MonitorDeviceName, _countof(g_diagnostics.MonitorDeviceName), monitorInfo.szDevice, _TRUNCATE);
 
     UINT32 pathCount = 0;
     UINT32 modeCount = 0;
@@ -123,20 +247,49 @@ static void RefreshSdrWhiteLevelDiagnostics()
             continue;
         }
 
+        DISPLAYCONFIG_TARGET_DEVICE_NAME targetName{};
+        targetName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+        targetName.header.size = sizeof(targetName);
+        targetName.header.adapterId = paths[index].targetInfo.adapterId;
+        targetName.header.id = paths[index].targetInfo.id;
+        if (DisplayConfigGetDeviceInfo(&targetName.header) == ERROR_SUCCESS)
+        {
+            wcsncpy_s(
+                g_diagnostics.MonitorFriendlyName,
+                _countof(g_diagnostics.MonitorFriendlyName),
+                targetName.monitorFriendlyDeviceName,
+                _TRUNCATE);
+        }
+
         DISPLAYCONFIG_SDR_WHITE_LEVEL sdrWhiteLevel{};
         sdrWhiteLevel.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL;
         sdrWhiteLevel.header.size = sizeof(sdrWhiteLevel);
         sdrWhiteLevel.header.adapterId = paths[index].targetInfo.adapterId;
         sdrWhiteLevel.header.id = paths[index].targetInfo.id;
-        if (DisplayConfigGetDeviceInfo(&sdrWhiteLevel.header) != ERROR_SUCCESS)
+        if (DisplayConfigGetDeviceInfo(&sdrWhiteLevel.header) == ERROR_SUCCESS)
         {
-            return;
+            g_diagnostics.SdrWhiteLevelAvailable = 1;
+            g_diagnostics.SdrWhiteLevelRaw = static_cast<int>(sdrWhiteLevel.SDRWhiteLevel);
+            g_diagnostics.SdrWhiteLevelScale = static_cast<double>(sdrWhiteLevel.SDRWhiteLevel) / 1000.0;
+            g_diagnostics.SdrWhiteLevelNits = g_diagnostics.SdrWhiteLevelScale * 80.0;
         }
 
-        g_diagnostics.SdrWhiteLevelAvailable = 1;
-        g_diagnostics.SdrWhiteLevelRaw = static_cast<int>(sdrWhiteLevel.SDRWhiteLevel);
-        g_diagnostics.SdrWhiteLevelScale = static_cast<double>(sdrWhiteLevel.SDRWhiteLevel) / 1000.0;
-        g_diagnostics.SdrWhiteLevelNits = g_diagnostics.SdrWhiteLevelScale * 80.0;
+        DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO advancedColor{};
+        advancedColor.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
+        advancedColor.header.size = sizeof(advancedColor);
+        advancedColor.header.adapterId = paths[index].targetInfo.adapterId;
+        advancedColor.header.id = paths[index].targetInfo.id;
+        if (DisplayConfigGetDeviceInfo(&advancedColor.header) == ERROR_SUCCESS)
+        {
+            g_diagnostics.AdvancedColorInfoAvailable = 1;
+            g_diagnostics.AdvancedColorSupported = advancedColor.advancedColorSupported ? 1 : 0;
+            g_diagnostics.AdvancedColorEnabled = advancedColor.advancedColorEnabled ? 1 : 0;
+            g_diagnostics.WideColorEnforced = advancedColor.wideColorEnforced ? 1 : 0;
+            g_diagnostics.AdvancedColorForceDisabled = advancedColor.advancedColorForceDisabled ? 1 : 0;
+            g_diagnostics.AdvancedColorEncoding = static_cast<int>(advancedColor.colorEncoding);
+            g_diagnostics.AdvancedColorBitsPerChannel = static_cast<int>(advancedColor.bitsPerColorChannel);
+        }
+
         return;
     }
 }
@@ -152,7 +305,7 @@ static hdr::HdrCaptureCapabilities RefreshCapabilities(bool refreshSdrWhiteLevel
     g_diagnostics.ActiveCapture = g_activeCapture ? 1 : 0;
     if (refreshSdrWhiteLevel)
     {
-        RefreshSdrWhiteLevelDiagnostics();
+        RefreshDisplayDiagnostics();
     }
 
     return capabilities;
@@ -274,7 +427,7 @@ __declspec(dllexport) int HdrSampler_GetDiagnostics(HdrNativeDiagnostics* output
             }
         }
 
-        RefreshCapabilities(g_diagnostics.LastStatus == -3);
+        RefreshCapabilities(true);
         *output = g_diagnostics;
         return 0;
     }
@@ -294,6 +447,29 @@ __declspec(dllexport) int HdrSampler_GetDiagnostics(HdrNativeDiagnostics* output
         output->SdrWhiteLevelRaw = 0;
         output->SdrWhiteLevelNits = 0.0;
         output->SdrWhiteLevelScale = 0.0;
+        output->DxgiOutputAvailable = 0;
+        output->DxgiBitsPerColor = 0;
+        output->DxgiColorSpace = -1;
+        output->DxgiHdrColorSpace = 0;
+        output->DxgiMinLuminance = 0.0;
+        output->DxgiMaxLuminance = 0.0;
+        output->DxgiMaxFullFrameLuminance = 0.0;
+        output->AdvancedColorInfoAvailable = 0;
+        output->AdvancedColorSupported = 0;
+        output->AdvancedColorEnabled = 0;
+        output->WideColorEnforced = 0;
+        output->AdvancedColorForceDisabled = 0;
+        output->AdvancedColorEncoding = -1;
+        output->AdvancedColorBitsPerChannel = 0;
+        output->MonitorInfoAvailable = 0;
+        output->MonitorLeft = 0;
+        output->MonitorTop = 0;
+        output->MonitorRight = 0;
+        output->MonitorBottom = 0;
+        output->CursorX = 0;
+        output->CursorY = 0;
+        output->MonitorDeviceName[0] = L'\0';
+        output->MonitorFriendlyName[0] = L'\0';
         return -2;
     }
 }

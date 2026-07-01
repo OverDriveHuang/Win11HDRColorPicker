@@ -215,9 +215,16 @@ namespace ColorPicker.Stage2
             _hdrDiagnosticsText.Text = HdrSamplerNative.GetDiagnosticsText();
             panel.Children.Add(_hdrDiagnosticsText);
 
-            var refreshButton = new Button { Content = "Refresh", MinWidth = 80, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+            var buttonRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+            var refreshButton = new Button { Content = "Refresh", MinWidth = 80 };
             refreshButton.Click += (_, __) => _hdrDiagnosticsText.Text = HdrSamplerNative.GetDiagnosticsText();
-            panel.Children.Add(refreshButton);
+            buttonRow.Children.Add(refreshButton);
+
+            var copyButton = new Button { Content = "Copy", MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
+            copyButton.Click += (_, __) => Clipboard.SetText(_hdrDiagnosticsText.Text ?? string.Empty);
+            buttonRow.Children.Add(copyButton);
+
+            panel.Children.Add(buttonRow);
             return border;
         }
 
