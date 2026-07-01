@@ -1,6 +1,6 @@
 # WinHDRColorPicker
 
-Standalone Windows HDR color picker prototype based on Microsoft PowerToys Color Picker UI code, with an HDR sampling path added for Windows Graphics Capture FP16 output.
+Standalone Windows HDR color picker prototype based on Microsoft PowerToys Color Picker UI code, with an HDR sampling path added for Windows Graphics Capture FP16 output (Require Windows 11).
 
 ## Current status
 
@@ -9,8 +9,6 @@ This repository contains the completed Phase 2 standalone prototype. It is not i
 ## Download
 
 Download the latest self-contained Windows x64 package from GitHub Releases:
-
-https://github.com/OverDriveHuang/WinHDRColorPicker/releases
 
 Unzip it and run:
 
