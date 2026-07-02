@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows.Input;
@@ -30,6 +31,7 @@ namespace ColorPicker.ViewModels
         private readonly List<ColorFormatModel> _allColorRepresentations = new List<ColorFormatModel>();
         private Color _selectedColor;
         private HdrColorSample _selectedHdrSample;
+        private string _selectedGdiRgbText = "N/A";
         private bool _initializing;
         private int _selectedColorIndex;
 
@@ -111,6 +113,20 @@ namespace ColorPicker.ViewModels
             }
         }
 
+        public string SelectedGdiRgbText
+        {
+            get
+            {
+                return _selectedGdiRgbText;
+            }
+
+            set
+            {
+                _selectedGdiRgbText = string.IsNullOrWhiteSpace(value) ? "N/A" : value;
+                OnPropertyChanged();
+            }
+        }
+
         public int SelectedColorIndex
         {
             get
@@ -126,10 +142,12 @@ namespace ColorPicker.ViewModels
                     var selected = ColorsHistory[_selectedColorIndex];
                     SelectedColor = selected.Color;
                     SelectedHdrSample = selected.HdrSample;
+                    SelectedGdiRgbText = FormatGdiRgbText(selected);
                 }
                 else
                 {
                     SelectedHdrSample = null;
+                    SelectedGdiRgbText = "N/A";
                 }
 
                 OnPropertyChanged();
@@ -375,10 +393,43 @@ namespace ColorPicker.ViewModels
         {
             ColorRepresentations.Clear();
 
+            var insertedGdiRgb = false;
             foreach (var colorFormat in _userSettings.VisibleColorFormats)
             {
                 ColorRepresentations.Add(new ColorFormatModel() { FormatName = colorFormat.Key.ToUpperInvariant(), Convert = null, FormatString = colorFormat.Value });
+                if (!insertedGdiRgb && colorFormat.Key.Equals("DEFAULT HDR", StringComparison.OrdinalIgnoreCase))
+                {
+                    ColorRepresentations.Add(CreateGdiRgbFormat());
+                    insertedGdiRgb = true;
+                }
             }
+
+            if (!insertedGdiRgb)
+            {
+                ColorRepresentations.Insert(Math.Min(2, ColorRepresentations.Count), CreateGdiRgbFormat());
+            }
+        }
+
+        private static ColorFormatModel CreateGdiRgbFormat()
+            => new ColorFormatModel
+            {
+                FormatName = "GDI RGB",
+                ConvertWithContext = (_, __, gdiRgbText) => string.IsNullOrWhiteSpace(gdiRgbText) ? "N/A" : gdiRgbText,
+            };
+
+        private static string FormatGdiRgbText(ColorHistoryItem item)
+        {
+            if (item?.HasGdiColor != true)
+            {
+                return "N/A";
+            }
+
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "rgb({0}, {1}, {2})",
+                item.GdiColor.R,
+                item.GdiColor.G,
+                item.GdiColor.B);
         }
     }
 }

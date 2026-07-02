@@ -1,5 +1,8 @@
 #include "HdrSampler.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <cwchar>
 #include <dxgi1_6.h>
 #include <objbase.h>
@@ -75,6 +78,34 @@ struct HdrNativeDiagnostics
     int MonitorBottom;
     int CursorX;
     int CursorY;
+    int ComparisonAvailable;
+    int ComparisonGdiAvailable;
+    int ComparisonSampleSize;
+    int ComparisonScreenX;
+    int ComparisonScreenY;
+    int ComparisonCaptureX;
+    int ComparisonCaptureY;
+    int ComparisonGdiActualWidth;
+    int ComparisonGdiActualHeight;
+    int ComparisonGdiPixelCount;
+    double ComparisonWgcLinearR;
+    double ComparisonWgcLinearG;
+    double ComparisonWgcLinearB;
+    unsigned char ComparisonWgcSdrR;
+    unsigned char ComparisonWgcSdrG;
+    unsigned char ComparisonWgcSdrB;
+    unsigned char ComparisonGdiR;
+    unsigned char ComparisonGdiG;
+    unsigned char ComparisonGdiB;
+    double ComparisonGdiExpectedLinearR;
+    double ComparisonGdiExpectedLinearG;
+    double ComparisonGdiExpectedLinearB;
+    double ComparisonRatioR;
+    double ComparisonRatioG;
+    double ComparisonRatioB;
+    int ComparisonRatioRAvailable;
+    int ComparisonRatioGAvailable;
+    int ComparisonRatioBAvailable;
     wchar_t MonitorDeviceName[32];
     wchar_t MonitorFriendlyName[128];
 };
@@ -91,6 +122,38 @@ static HdrNativeDiagnostics g_diagnostics = []
     diagnostics.AdvancedColorEncoding = -1;
     return diagnostics;
 }();
+
+static void ResetComparisonDiagnostics()
+{
+    g_diagnostics.ComparisonAvailable = 0;
+    g_diagnostics.ComparisonGdiAvailable = 0;
+    g_diagnostics.ComparisonSampleSize = 0;
+    g_diagnostics.ComparisonScreenX = 0;
+    g_diagnostics.ComparisonScreenY = 0;
+    g_diagnostics.ComparisonCaptureX = 0;
+    g_diagnostics.ComparisonCaptureY = 0;
+    g_diagnostics.ComparisonGdiActualWidth = 0;
+    g_diagnostics.ComparisonGdiActualHeight = 0;
+    g_diagnostics.ComparisonGdiPixelCount = 0;
+    g_diagnostics.ComparisonWgcLinearR = 0.0;
+    g_diagnostics.ComparisonWgcLinearG = 0.0;
+    g_diagnostics.ComparisonWgcLinearB = 0.0;
+    g_diagnostics.ComparisonWgcSdrR = 0;
+    g_diagnostics.ComparisonWgcSdrG = 0;
+    g_diagnostics.ComparisonWgcSdrB = 0;
+    g_diagnostics.ComparisonGdiR = 0;
+    g_diagnostics.ComparisonGdiG = 0;
+    g_diagnostics.ComparisonGdiB = 0;
+    g_diagnostics.ComparisonGdiExpectedLinearR = 0.0;
+    g_diagnostics.ComparisonGdiExpectedLinearG = 0.0;
+    g_diagnostics.ComparisonGdiExpectedLinearB = 0.0;
+    g_diagnostics.ComparisonRatioR = 0.0;
+    g_diagnostics.ComparisonRatioG = 0.0;
+    g_diagnostics.ComparisonRatioB = 0.0;
+    g_diagnostics.ComparisonRatioRAvailable = 0;
+    g_diagnostics.ComparisonRatioGAvailable = 0;
+    g_diagnostics.ComparisonRatioBAvailable = 0;
+}
 
 static void ResetDisplayDiagnostics()
 {
@@ -368,6 +431,8 @@ __declspec(dllexport) int HdrSampler_SampleAtCursor(int sampleSize, int requestB
         output->BorderlessRequested = requestBorderless != 0 ? 1 : 0;
         output->BorderlessUsed = sample.BorderlessUsed ? 1 : 0;
 
+        ResetComparisonDiagnostics();
+
         g_diagnostics.BorderlessAllowed = g_borderlessAllowed ? 1 : 0;
         g_diagnostics.LastStatus = output->Status;
         g_diagnostics.LastHadHdrData = output->HasHdrData;
@@ -381,6 +446,7 @@ __declspec(dllexport) int HdrSampler_SampleAtCursor(int sampleSize, int requestB
     {
         output->Status = -2;
         output->HasHdrData = 0;
+        ResetComparisonDiagnostics();
         g_activeCapture = false;
         g_diagnostics.LastStatus = -2;
         g_diagnostics.LastHadHdrData = 0;
@@ -468,6 +534,34 @@ __declspec(dllexport) int HdrSampler_GetDiagnostics(HdrNativeDiagnostics* output
         output->MonitorBottom = 0;
         output->CursorX = 0;
         output->CursorY = 0;
+        output->ComparisonAvailable = 0;
+        output->ComparisonGdiAvailable = 0;
+        output->ComparisonSampleSize = 0;
+        output->ComparisonScreenX = 0;
+        output->ComparisonScreenY = 0;
+        output->ComparisonCaptureX = 0;
+        output->ComparisonCaptureY = 0;
+        output->ComparisonGdiActualWidth = 0;
+        output->ComparisonGdiActualHeight = 0;
+        output->ComparisonGdiPixelCount = 0;
+        output->ComparisonWgcLinearR = 0.0;
+        output->ComparisonWgcLinearG = 0.0;
+        output->ComparisonWgcLinearB = 0.0;
+        output->ComparisonWgcSdrR = 0;
+        output->ComparisonWgcSdrG = 0;
+        output->ComparisonWgcSdrB = 0;
+        output->ComparisonGdiR = 0;
+        output->ComparisonGdiG = 0;
+        output->ComparisonGdiB = 0;
+        output->ComparisonGdiExpectedLinearR = 0.0;
+        output->ComparisonGdiExpectedLinearG = 0.0;
+        output->ComparisonGdiExpectedLinearB = 0.0;
+        output->ComparisonRatioR = 0.0;
+        output->ComparisonRatioG = 0.0;
+        output->ComparisonRatioB = 0.0;
+        output->ComparisonRatioRAvailable = 0;
+        output->ComparisonRatioGAvailable = 0;
+        output->ComparisonRatioBAvailable = 0;
         output->MonitorDeviceName[0] = L'\0';
         output->MonitorFriendlyName[0] = L'\0';
         return -2;

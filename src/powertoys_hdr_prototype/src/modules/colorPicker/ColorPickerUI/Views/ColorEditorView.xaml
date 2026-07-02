@@ -248,6 +248,7 @@
                                     ColorCopiedNotificationBorder="{Binding ElementName=CopiedBorderIndicator}"
                                     ColorFormatModel="{Binding}"
                                     SelectedColor="{Binding ElementName=colorEditorControl, Path=DataContext.SelectedColor}"
+                                    SelectedGdiRgbText="{Binding ElementName=colorEditorControl, Path=DataContext.SelectedGdiRgbText}"
                                     SelectedHdrColor="{Binding ElementName=colorEditorControl, Path=DataContext.SelectedHdrSample}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

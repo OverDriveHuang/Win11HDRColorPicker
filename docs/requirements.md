@@ -58,6 +58,27 @@ nits 基准固定为 `1.0 = 80 nits`。这是需求确定项，不再读取 Wind
 
 如果实机确认 Win10 异常值与 `SDR white level / 80` 一致，则后续可以增加基于当前显示器 SDR white level 的归一化：在受影响环境中将 WGC FP16 采样值除以该倍率，使 SDR 图片白点回到 `linear RGB ~= 1.0`。该修正必须按当前显示器逐点应用，不能使用固定 `2x` 或跨显示器缓存错用。
 
+### 诊断分支：WGC FP16 与 GDI 同点位对照
+
+当前 Win10 21H2 实机日志显示，异常机器的当前显示器为普通 SDR 路径：`SDR white level = 80 nits / 1x`、`DXGI colorSpace = RGB_FULL_G22_NONE_P709`、`HDR = no`、`Advanced Color enabled = no`。这说明前述 `SDR white level / 80` 归一化假设不能解释当前约 2 倍的 WGC FP16 linear RGB 读数。需要在单独诊断分支中加入对照采样，用于判断问题发生在 WGC FP16 raw linear 读回语义，还是发生在后续 sRGB/CIELAB/nits/历史/格式化流程。
+
+该功能只属于诊断分支，不属于正式产品需求。正式产品不应把旧 GDI 路径作为采样 fallback，也不应把 GDI 引入最终 HDR 采样策略。
+
+诊断分支构建中，WGC/GDI 对照默认开启，不在 Settings 中新增可配置开关，不写入用户设置文件。这样避免新增只服务于临时诊断的持久化产品设置。
+
+每次吸管采样时，诊断分支必须对同一屏幕点位输出以下对照数据：
+
+- WGC FP16 raw linear RGB。
+- WGC 派生 SDR RGB，即当前产品路径由 WGC linear 投影出的 `rgb(...)`。
+- GDI/旧 SDR 路径读取的同点位 8-bit RGB。
+- GDI RGB 按 sRGB EOTF 反推得到的 expected linear RGB。
+- `WGC raw linear / GDI expected linear` 的逐通道 ratio；分母为 0 时应显示 `N/A`，不能输出无意义的无限大。
+- 当前采样点的 screen/capture 坐标、sample size、monitor identity，以及已有的 SDR white、DXGI output、Advanced Color 信息，便于把 ratio 归因到具体显示器和系统色彩路径。
+
+这些对照数据输出到 Settings 底部现有 HDR diagnostics 文本区，作为 `Last WGC/GDI comparison` 一类的最近一次采样诊断内容。现有 `Refresh` 和 `Copy` 按钮必须能读取和复制完整 diagnostics 文本。轮询 diagnostics 不应改变用户当前格式复制结果；色板历史仍保存正式产品路径的 WGC/HDR sample 数据。
+
+由于轮询 diagnostics 中的 GDI `CopyFromScreen` 在用户实机上可能受到时机和窗口组合影响，诊断分支还需要在用户点击吸管采样的同一时刻额外执行一次旧 PowerToys 风格的 1x1 GDI RGB 采样，并将该值随本次历史色块保存。在 Color Picker 主界面的格式列表中固定新增一行 `GDI RGB`，用于显示该历史色块保存的点击时 GDI 值；旧历史或无法读取时显示 `N/A`。该行只属于诊断分支，用于对比“点击时旧 GDI RGB”和“正式 WGC 路径投影出的 SDR RGB”，不代表正式产品 fallback 策略。
+
 ### 历史色块和 HDR 数据保存
 
 颜色历史不能只保存 SDR `A/R/G/B` 值。每次点击采样并写入历史时，必须同时保存该色块当时对应的 HDR sample 数据，包括 `linear RGB`、`RGB nits`、`Y nits`、`ICtCp` 和用于判断可用性的状态信息。
@@ -243,7 +264,7 @@ Phase 2 standalone shell 是后台常驻程序，因此必须提供托盘入口�
 6. 最终 PowerToys 集成应保持原版 UI/UX，只扩展格式参数能力。
 7. 平均取样必须先平均 linear RGB，再进行 nits 和 ICtCp 派生计算。
 8. 历史色块必须保存点击采样当时的 HDR sample；切换历史色块和复制 HDR 格式时必须使用该色块自己的 HDR 数据。没有保存或不能读取 HDR 数据的色块必须显示/复制 `N/A`，不能沿用最近一次吸管采样值。
-9. Windows 10 SDR 图片出现 WGC FP16 读数约 2 倍时，必须先通过当前显示器 SDR white level diagnostics 验证倍率来源；如果确认倍率吻合，修正应按当前显示器的 `SDR white level / 80` 做归一化，不能使用固定倍率或取错显示器。
+9. Windows 10 SDR 图片出现 WGC FP16 读数约 2 倍时，必须先通过当前显示器 SDR white level diagnostics 验证倍率来源；如果确认倍率吻合，修正应按当前显示器的 `SDR white level / 80` 做归一化，不能使用固定倍率或取错显示器。若 SDR white level 已确认是 `80 nits / 1x`，则应进入诊断分支，用 WGC FP16 与 GDI 同点位对照确认 raw linear 读回语义，不得直接把固定 `0.5` 写成正式修正。
 
 ## 待决策问题
 

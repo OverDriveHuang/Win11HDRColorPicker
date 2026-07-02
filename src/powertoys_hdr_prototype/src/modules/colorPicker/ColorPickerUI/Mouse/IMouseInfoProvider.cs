@@ -30,5 +30,9 @@ namespace ColorPicker.Mouse
         Color CurrentColor { get; }
 
         HdrColorSample CurrentHdrColor { get; }
+
+        bool TryGetGdiColorAtCurrentPosition(out Color color);
+
+        bool TryGetGdiColorAtScreenPosition(System.Windows.Point screenPosition, out Color color);
     }
 }

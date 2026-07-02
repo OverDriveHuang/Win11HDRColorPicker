@@ -28,6 +28,8 @@ namespace ColorPicker.Controls
 
         public static readonly DependencyProperty SelectedHdrColorProperty = DependencyProperty.Register("SelectedHdrColor", typeof(HdrColorSample), typeof(ColorFormatControl), new PropertyMetadata(SelectedHdrColorPropertyChanged));
 
+        public static readonly DependencyProperty SelectedGdiRgbTextProperty = DependencyProperty.Register("SelectedGdiRgbText", typeof(string), typeof(ColorFormatControl), new PropertyMetadata("N/A", SelectedGdiRgbTextPropertyChanged));
+
         public static readonly DependencyProperty SelectedColorCopyHelperTextProperty = DependencyProperty.Register("SelectedColorCopyHelperText", typeof(string), typeof(ColorFormatControl));
 
         public static readonly DependencyProperty ColorCopiedNotificationBorderProperty = DependencyProperty.Register("ColorCopiedNotificationBorder", typeof(FrameworkElement), typeof(ColorFormatControl), new PropertyMetadata(ColorCopiedBorderPropertyChanged));
@@ -46,6 +48,12 @@ namespace ColorPicker.Controls
         {
             get { return (HdrColorSample)GetValue(SelectedHdrColorProperty); }
             set { SetValue(SelectedHdrColorProperty, value); }
+        }
+
+        public string SelectedGdiRgbText
+        {
+            get { return (string)GetValue(SelectedGdiRgbTextProperty); }
+            set { SetValue(SelectedGdiRgbTextProperty, value); }
         }
 
         public ColorFormatModel ColorFormatModel
@@ -95,6 +103,11 @@ namespace ColorPicker.Controls
             ((ColorFormatControl)d).RefreshColorText();
         }
 
+        private static void SelectedGdiRgbTextPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((ColorFormatControl)d).RefreshColorText();
+        }
+
         private void RefreshColorText()
         {
             if (ColorFormatModel == null)
@@ -102,7 +115,7 @@ namespace ColorPicker.Controls
                 return;
             }
 
-            var colorText = ColorFormatModel.GetColorText(SelectedColor, SelectedHdrColor);
+            var colorText = ColorFormatModel.GetColorText(SelectedColor, SelectedHdrColor, SelectedGdiRgbText);
             ColorTextRepresentationTextBlock.Text = colorText;
             ColorTextRepresentationTextBlock.ToolTip = colorText;
             SelectedColorCopyHelperText = string.Format(CultureInfo.InvariantCulture, "{0} {1}", ColorFormatModel.FormatName, colorText);

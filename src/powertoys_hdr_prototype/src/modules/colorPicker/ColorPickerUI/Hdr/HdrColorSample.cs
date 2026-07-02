@@ -34,6 +34,20 @@ namespace ColorPicker.Hdr
 
         public Color SdrColor { get; init; } = Color.Transparent;
 
+        public int ScreenX { get; init; }
+
+        public int ScreenY { get; init; }
+
+        public int CaptureX { get; init; }
+
+        public int CaptureY { get; init; }
+
+        public int ActualWidth { get; init; }
+
+        public int ActualHeight { get; init; }
+
+        public int PixelCount { get; init; }
+
         public bool BorderlessRequested { get; init; }
 
         public bool BorderlessUsed { get; init; }

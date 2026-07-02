@@ -17,6 +17,8 @@ namespace ColorPicker.Models
 
         public Func<Color, string> Convert { get; set; }
 
+        public Func<Color, HdrColorSample, string, string> ConvertWithContext { get; set; }
+
         public string FormatString { get; set; }
 
         public string GetColorText(Color color)
@@ -26,9 +28,19 @@ namespace ColorPicker.Models
 
         public string GetColorText(Color color, HdrColorSample hdrSample)
         {
+            return GetColorText(color, hdrSample, "N/A");
+        }
+
+        public string GetColorText(Color color, HdrColorSample hdrSample, string gdiRgbText)
+        {
             if (Convert != null)
             {
                 return Convert(color);
+            }
+
+            if (ConvertWithContext != null)
+            {
+                return ConvertWithContext(color, hdrSample, gdiRgbText);
             }
 
             System.Drawing.Color drawingColor = System.Drawing.Color.FromArgb(color.A, color.R, color.G, color.B);

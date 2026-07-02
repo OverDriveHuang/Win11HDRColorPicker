@@ -13,11 +13,11 @@ using static ColorPicker.NativeMethods;
 
 namespace ColorPicker.Mouse
 {
-    public delegate void PrimaryMouseDownEventHandler(object sender, IntPtr wParam);
+    public delegate void PrimaryMouseDownEventHandler(object sender, IntPtr wParam, System.Windows.Point screenPosition);
 
-    public delegate void SecondaryMouseUpEventHandler(object sender, IntPtr wParam);
+    public delegate void SecondaryMouseUpEventHandler(object sender, IntPtr wParam, System.Windows.Point screenPosition);
 
-    public delegate void MiddleMouseDownEventHandler(object sender, IntPtr wParam);
+    public delegate void MiddleMouseDownEventHandler(object sender, IntPtr wParam, System.Windows.Point screenPosition);
 
     internal class MouseHook
     {
@@ -148,7 +148,7 @@ namespace ColorPicker.Mouse
                 {
                     if (PrimaryMouseDown != null)
                     {
-                        PrimaryMouseDown.Invoke(null, wParam);
+                        PrimaryMouseDown.Invoke(null, wParam, new System.Windows.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y));
                     }
 
                     return new IntPtr(-1);
@@ -158,7 +158,7 @@ namespace ColorPicker.Mouse
                 {
                     if (SecondaryMouseUp != null)
                     {
-                        SecondaryMouseUp.Invoke(null, wParam);
+                        SecondaryMouseUp.Invoke(null, wParam, new System.Windows.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y));
                     }
 
                     return new IntPtr(-1);
@@ -174,7 +174,7 @@ namespace ColorPicker.Mouse
                 {
                     if (MiddleMouseDown != null)
                     {
-                        MiddleMouseDown.Invoke(null, wParam);
+                        MiddleMouseDown.Invoke(null, wParam, new System.Windows.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y));
                     }
 
                     return new IntPtr(-1);

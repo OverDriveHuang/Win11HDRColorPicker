@@ -29,6 +29,7 @@ namespace ColorPicker.ViewModels
         private readonly ZoomWindowHelper _zoomWindowHelper;
         private readonly AppStateHandler _appStateHandler;
         private readonly IUserSettings _userSettings;
+        private readonly IMouseInfoProvider _mouseInfoProvider;
         private KeyboardMonitor _keyboardMonitor;
 
         /// <summary>
@@ -59,6 +60,7 @@ namespace ColorPicker.ViewModels
             _zoomWindowHelper = zoomWindowHelper;
             _appStateHandler = appStateHandler;
             _userSettings = userSettings;
+            _mouseInfoProvider = mouseInfoProvider;
             _keyboardMonitor = keyboardMonitor;
 
             NativeEventWaiter.WaitForEventLoop(
@@ -120,7 +122,7 @@ namespace ColorPicker.ViewModels
 
         private void AppStateHandler_EnterPressed(object sender, EventArgs e)
         {
-            MouseInfoProvider_OnPrimaryMouseDown(null, default);
+            MouseInfoProvider_OnPrimaryMouseDown(null, default, GetCurrentMousePosition());
         }
 
         /// <summary>
@@ -180,28 +182,28 @@ namespace ColorPicker.ViewModels
             SetColorDetails(((SolidColorBrush)ColorBrush).Color);
         }
 
-        private void MouseInfoProvider_OnPrimaryMouseDown(object sender, IntPtr wParam)
+        private void MouseInfoProvider_OnPrimaryMouseDown(object sender, IntPtr wParam, Point screenPosition)
         {
-            HandleMouseClickAction(_userSettings.PrimaryClickAction.Value);
+            HandleMouseClickAction(_userSettings.PrimaryClickAction.Value, screenPosition);
         }
 
-        private void MouseInfoProvider_OnMiddleMouseDown(object sender, IntPtr wParam)
+        private void MouseInfoProvider_OnMiddleMouseDown(object sender, IntPtr wParam, Point screenPosition)
         {
-            HandleMouseClickAction(_userSettings.MiddleClickAction.Value);
+            HandleMouseClickAction(_userSettings.MiddleClickAction.Value, screenPosition);
         }
 
-        private void MouseInfoProvider_OnSecondaryMouseUp(object sender, IntPtr wParam)
+        private void MouseInfoProvider_OnSecondaryMouseUp(object sender, IntPtr wParam, Point screenPosition)
         {
-            HandleMouseClickAction(_userSettings.SecondaryClickAction.Value);
+            HandleMouseClickAction(_userSettings.SecondaryClickAction.Value, screenPosition);
         }
 
-        private void HandleMouseClickAction(ColorPickerClickAction action)
+        private void HandleMouseClickAction(ColorPickerClickAction action, Point screenPosition)
         {
             switch (action)
             {
                 case ColorPickerClickAction.PickColorThenEditor:
                     ClipboardHelper.CopyToClipboard(ColorText);
-                    UpdateColorHistory(GetColorString());
+                    UpdateColorHistory(GetColorString(TryGetClickGdiColor(screenPosition)));
 
                     _appStateHandler.OpenColorEditor();
 
@@ -209,7 +211,7 @@ namespace ColorPicker.ViewModels
 
                 case ColorPickerClickAction.PickColorAndClose:
                     ClipboardHelper.CopyToClipboard(ColorText);
-                    UpdateColorHistory(GetColorString());
+                    UpdateColorHistory(GetColorString(TryGetClickGdiColor(screenPosition)));
 
                     _appStateHandler.EndUserSession();
 
@@ -247,10 +249,31 @@ namespace ColorPicker.ViewModels
             }
         }
 
-        private string GetColorString()
+        private string GetColorString(Color? gdiColor)
         {
             var color = ((SolidColorBrush)ColorBrush).Color;
-            return ColorHistoryItem.FromColor(color, _hdrColorSample).Serialize();
+            return ColorHistoryItem.FromColor(color, _hdrColorSample, gdiColor).Serialize();
+        }
+
+        private Color? TryGetClickGdiColor(Point screenPosition)
+        {
+            if (_mouseInfoProvider?.TryGetGdiColorAtScreenPosition(screenPosition, out var gdiColor) != true)
+            {
+                return null;
+            }
+
+            if (gdiColor.A == 0)
+            {
+                return null;
+            }
+
+            return Color.FromArgb(gdiColor.A, gdiColor.R, gdiColor.G, gdiColor.B);
+        }
+
+        private static Point GetCurrentMousePosition()
+        {
+            NativeMethods.GetCursorPos(out NativeMethods.PointInter point);
+            return (Point)point;
         }
 
         private void SetColorDetails(System.Drawing.Color color)

@@ -3,6 +3,7 @@
 // HDR prototype additions live in this copy of PowerToys Color Picker.
 
 using System;
+using System.Drawing;
 using System.Runtime.InteropServices;
 
 namespace ColorPicker.Hdr
@@ -78,6 +79,34 @@ namespace ColorPicker.Hdr
             public int MonitorBottom;
             public int CursorX;
             public int CursorY;
+            public int ComparisonAvailable;
+            public int ComparisonGdiAvailable;
+            public int ComparisonSampleSize;
+            public int ComparisonScreenX;
+            public int ComparisonScreenY;
+            public int ComparisonCaptureX;
+            public int ComparisonCaptureY;
+            public int ComparisonGdiActualWidth;
+            public int ComparisonGdiActualHeight;
+            public int ComparisonGdiPixelCount;
+            public double ComparisonWgcLinearR;
+            public double ComparisonWgcLinearG;
+            public double ComparisonWgcLinearB;
+            public byte ComparisonWgcSdrR;
+            public byte ComparisonWgcSdrG;
+            public byte ComparisonWgcSdrB;
+            public byte ComparisonGdiR;
+            public byte ComparisonGdiG;
+            public byte ComparisonGdiB;
+            public double ComparisonGdiExpectedLinearR;
+            public double ComparisonGdiExpectedLinearG;
+            public double ComparisonGdiExpectedLinearB;
+            public double ComparisonRatioR;
+            public double ComparisonRatioG;
+            public double ComparisonRatioB;
+            public int ComparisonRatioRAvailable;
+            public int ComparisonRatioGAvailable;
+            public int ComparisonRatioBAvailable;
 
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
             public string MonitorDeviceName;
@@ -120,6 +149,13 @@ namespace ColorPicker.Hdr
                     IctcpCp = native.IctcpCp,
                     IctcpI10 = native.IctcpI10,
                     SdrColor = System.Drawing.Color.FromArgb(native.SdrA, native.SdrR, native.SdrG, native.SdrB),
+                    ScreenX = native.ScreenX,
+                    ScreenY = native.ScreenY,
+                    CaptureX = native.CaptureX,
+                    CaptureY = native.CaptureY,
+                    ActualWidth = native.ActualWidth,
+                    ActualHeight = native.ActualHeight,
+                    PixelCount = native.PixelCount,
                     BorderlessRequested = native.BorderlessRequested != 0,
                     BorderlessUsed = native.BorderlessUsed != 0,
                 };
@@ -176,6 +212,170 @@ namespace ColorPicker.Hdr
             }
         }
 
+        private static GdiComparison _lastGdiComparison;
+
+        public static void UpdateGdiComparison(HdrColorSample sample, int sampleSize, int screenX, int screenY, GdiExpectedColor gdi)
+        {
+            if (sample?.HasHdrData != true)
+            {
+                _lastGdiComparison = null;
+                return;
+            }
+
+            _lastGdiComparison = new GdiComparison
+            {
+                SampleSize = sampleSize,
+                WgcScreenX = sample.ScreenX,
+                WgcScreenY = sample.ScreenY,
+                WgcCaptureX = sample.CaptureX,
+                WgcCaptureY = sample.CaptureY,
+                WgcActualWidth = sample.ActualWidth,
+                WgcActualHeight = sample.ActualHeight,
+                WgcPixelCount = sample.PixelCount,
+                ManagedScreenX = screenX,
+                ManagedScreenY = screenY,
+                WgcLinearR = sample.LinearR,
+                WgcLinearG = sample.LinearG,
+                WgcLinearB = sample.LinearB,
+                WgcSdrR = sample.SdrColor.R,
+                WgcSdrG = sample.SdrColor.G,
+                WgcSdrB = sample.SdrColor.B,
+                GdiAvailable = gdi.Available,
+                GdiR = gdi.R,
+                GdiG = gdi.G,
+                GdiB = gdi.B,
+                GdiExpectedLinearR = gdi.ExpectedLinearR,
+                GdiExpectedLinearG = gdi.ExpectedLinearG,
+                GdiExpectedLinearB = gdi.ExpectedLinearB,
+                GdiActualWidth = gdi.ActualWidth,
+                GdiActualHeight = gdi.ActualHeight,
+                GdiPixelCount = gdi.PixelCount,
+                HiddenWindowCount = gdi.HiddenWindowCount,
+                TopWindowBeforeExclusion = gdi.TopWindowBeforeExclusion,
+                TopWindowAfterExclusion = gdi.TopWindowAfterExclusion,
+            };
+        }
+
+        public readonly struct GdiExpectedColor
+        {
+            public GdiExpectedColor(
+                bool available,
+                byte r,
+                byte g,
+                byte b,
+                double expectedLinearR,
+                double expectedLinearG,
+                double expectedLinearB,
+                int actualWidth,
+                int actualHeight,
+                int pixelCount,
+                int hiddenWindowCount,
+                string topWindowBeforeExclusion,
+                string topWindowAfterExclusion)
+            {
+                Available = available;
+                R = r;
+                G = g;
+                B = b;
+                ExpectedLinearR = expectedLinearR;
+                ExpectedLinearG = expectedLinearG;
+                ExpectedLinearB = expectedLinearB;
+                ActualWidth = actualWidth;
+                ActualHeight = actualHeight;
+                PixelCount = pixelCount;
+                HiddenWindowCount = hiddenWindowCount;
+                TopWindowBeforeExclusion = topWindowBeforeExclusion ?? string.Empty;
+                TopWindowAfterExclusion = topWindowAfterExclusion ?? string.Empty;
+            }
+
+            public bool Available { get; }
+
+            public byte R { get; }
+
+            public byte G { get; }
+
+            public byte B { get; }
+
+            public double ExpectedLinearR { get; }
+
+            public double ExpectedLinearG { get; }
+
+            public double ExpectedLinearB { get; }
+
+            public int ActualWidth { get; }
+
+            public int ActualHeight { get; }
+
+            public int PixelCount { get; }
+
+            public int HiddenWindowCount { get; }
+
+            public string TopWindowBeforeExclusion { get; }
+
+            public string TopWindowAfterExclusion { get; }
+        }
+
+        private sealed class GdiComparison
+        {
+            public int SampleSize { get; init; }
+
+            public int WgcScreenX { get; init; }
+
+            public int WgcScreenY { get; init; }
+
+            public int WgcCaptureX { get; init; }
+
+            public int WgcCaptureY { get; init; }
+
+            public int WgcActualWidth { get; init; }
+
+            public int WgcActualHeight { get; init; }
+
+            public int WgcPixelCount { get; init; }
+
+            public int ManagedScreenX { get; init; }
+
+            public int ManagedScreenY { get; init; }
+
+            public double WgcLinearR { get; init; }
+
+            public double WgcLinearG { get; init; }
+
+            public double WgcLinearB { get; init; }
+
+            public byte WgcSdrR { get; init; }
+
+            public byte WgcSdrG { get; init; }
+
+            public byte WgcSdrB { get; init; }
+
+            public bool GdiAvailable { get; init; }
+
+            public byte GdiR { get; init; }
+
+            public byte GdiG { get; init; }
+
+            public byte GdiB { get; init; }
+
+            public double GdiExpectedLinearR { get; init; }
+
+            public double GdiExpectedLinearG { get; init; }
+
+            public double GdiExpectedLinearB { get; init; }
+
+            public int GdiActualWidth { get; init; }
+
+            public int GdiActualHeight { get; init; }
+
+            public int GdiPixelCount { get; init; }
+
+            public int HiddenWindowCount { get; init; }
+
+            public string TopWindowBeforeExclusion { get; init; }
+
+            public string TopWindowAfterExclusion { get; init; }
+        }
+
         private static string FormatDiagnostics(NativeDiagnostics diagnostics)
         {
             if (diagnostics.WgcSupported == 0)
@@ -221,7 +421,8 @@ namespace ColorPicker.Hdr
                 FormatDxgiOutput(diagnostics),
                 FormatAdvancedColor(diagnostics),
                 diagnostics.ActiveCapture != 0 ? "Capture session: active" : "Capture session: inactive",
-                $"Last sample: {StatusToText(diagnostics.LastStatus, diagnostics.LastHadHdrData != 0)}");
+                $"Last sample: {StatusToText(diagnostics.LastStatus, diagnostics.LastHadHdrData != 0)}",
+                FormatGdiComparison());
         }
 
         private static string FormatMonitor(NativeDiagnostics diagnostics)
@@ -304,6 +505,143 @@ namespace ColorPicker.Hdr
         private static string YesNo(int value)
         {
             return value != 0 ? "yes" : "no";
+        }
+
+        private static string FormatComparison(NativeDiagnostics diagnostics)
+        {
+            if (diagnostics.ComparisonAvailable == 0)
+            {
+                return "Last WGC/GDI comparison: No sample yet";
+            }
+
+            if (diagnostics.ComparisonGdiAvailable == 0)
+            {
+                return string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "Last WGC/GDI comparison:\n  point: screen=({0},{1}), capture=({2},{3}), sample={4}x{4}\n  WGC linear=({5:0.####}, {6:0.####}, {7:0.####}), WGC SDR RGB=rgb({8}, {9}, {10})\n  GDI: unavailable",
+                    diagnostics.ComparisonScreenX,
+                    diagnostics.ComparisonScreenY,
+                    diagnostics.ComparisonCaptureX,
+                    diagnostics.ComparisonCaptureY,
+                    diagnostics.ComparisonSampleSize,
+                    diagnostics.ComparisonWgcLinearR,
+                    diagnostics.ComparisonWgcLinearG,
+                    diagnostics.ComparisonWgcLinearB,
+                    diagnostics.ComparisonWgcSdrR,
+                    diagnostics.ComparisonWgcSdrG,
+                    diagnostics.ComparisonWgcSdrB);
+            }
+
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Last WGC/GDI comparison:\n  point: screen=({0},{1}), capture=({2},{3}), sample={4}x{4}, gdiArea={5}x{6}, gdiPixels={7}\n  WGC linear=({8:0.####}, {9:0.####}, {10:0.####}), WGC SDR RGB=rgb({11}, {12}, {13})\n  GDI RGB=rgb({14}, {15}, {16}), GDI expected linear=({17:0.####}, {18:0.####}, {19:0.####})\n  ratio WGC/expected=({20}, {21}, {22})",
+                diagnostics.ComparisonScreenX,
+                diagnostics.ComparisonScreenY,
+                diagnostics.ComparisonCaptureX,
+                diagnostics.ComparisonCaptureY,
+                diagnostics.ComparisonSampleSize,
+                diagnostics.ComparisonGdiActualWidth,
+                diagnostics.ComparisonGdiActualHeight,
+                diagnostics.ComparisonGdiPixelCount,
+                diagnostics.ComparisonWgcLinearR,
+                diagnostics.ComparisonWgcLinearG,
+                diagnostics.ComparisonWgcLinearB,
+                diagnostics.ComparisonWgcSdrR,
+                diagnostics.ComparisonWgcSdrG,
+                diagnostics.ComparisonWgcSdrB,
+                diagnostics.ComparisonGdiR,
+                diagnostics.ComparisonGdiG,
+                diagnostics.ComparisonGdiB,
+                diagnostics.ComparisonGdiExpectedLinearR,
+                diagnostics.ComparisonGdiExpectedLinearG,
+                diagnostics.ComparisonGdiExpectedLinearB,
+                FormatRatio(diagnostics.ComparisonRatioR, diagnostics.ComparisonRatioRAvailable),
+                FormatRatio(diagnostics.ComparisonRatioG, diagnostics.ComparisonRatioGAvailable),
+                FormatRatio(diagnostics.ComparisonRatioB, diagnostics.ComparisonRatioBAvailable));
+        }
+
+        private static string FormatGdiComparison()
+        {
+            var comparison = _lastGdiComparison;
+            if (comparison == null)
+            {
+                return "Last WGC/GDI comparison: No sample yet";
+            }
+
+            if (!comparison.GdiAvailable)
+            {
+                return string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "Last WGC/GDI comparison:\n  point: managedScreen=({0},{1}), wgcScreen=({2},{3}), capture=({4},{5}), sample={6}x{6}, wgcArea={7}x{8}, wgcPixels={9}, excludedWindows={10}\n  topWindowBefore={11}\n  topWindowAfterExclusion={12}\n  WGC linear=({13:0.####}, {14:0.####}, {15:0.####}), WGC SDR RGB=rgb({16}, {17}, {18})\n  GDI CopyFromScreen: unavailable",
+                    comparison.ManagedScreenX,
+                    comparison.ManagedScreenY,
+                    comparison.WgcScreenX,
+                    comparison.WgcScreenY,
+                    comparison.WgcCaptureX,
+                    comparison.WgcCaptureY,
+                    comparison.SampleSize,
+                    comparison.WgcActualWidth,
+                    comparison.WgcActualHeight,
+                    comparison.WgcPixelCount,
+                    comparison.HiddenWindowCount,
+                    comparison.TopWindowBeforeExclusion,
+                    comparison.TopWindowAfterExclusion,
+                    comparison.WgcLinearR,
+                    comparison.WgcLinearG,
+                    comparison.WgcLinearB,
+                    comparison.WgcSdrR,
+                    comparison.WgcSdrG,
+                    comparison.WgcSdrB);
+            }
+
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Last WGC/GDI comparison:\n  point: managedScreen=({0},{1}), wgcScreen=({2},{3}), capture=({4},{5}), sample={6}x{6}, wgcArea={7}x{8}, wgcPixels={9}, gdiArea={10}x{11}, gdiPixels={12}, excludedWindows={13}\n  topWindowBefore={14}\n  topWindowAfterExclusion={15}\n  WGC linear=({16:0.####}, {17:0.####}, {18:0.####}), WGC SDR RGB=rgb({19}, {20}, {21})\n  GDI CopyFromScreen RGB=rgb({22}, {23}, {24}), GDI expected linear=({25:0.####}, {26:0.####}, {27:0.####})\n  ratio WGC/expected=({28}, {29}, {30})",
+                comparison.ManagedScreenX,
+                comparison.ManagedScreenY,
+                comparison.WgcScreenX,
+                comparison.WgcScreenY,
+                comparison.WgcCaptureX,
+                comparison.WgcCaptureY,
+                comparison.SampleSize,
+                comparison.WgcActualWidth,
+                comparison.WgcActualHeight,
+                comparison.WgcPixelCount,
+                comparison.GdiActualWidth,
+                comparison.GdiActualHeight,
+                comparison.GdiPixelCount,
+                comparison.HiddenWindowCount,
+                comparison.TopWindowBeforeExclusion,
+                comparison.TopWindowAfterExclusion,
+                comparison.WgcLinearR,
+                comparison.WgcLinearG,
+                comparison.WgcLinearB,
+                comparison.WgcSdrR,
+                comparison.WgcSdrG,
+                comparison.WgcSdrB,
+                comparison.GdiR,
+                comparison.GdiG,
+                comparison.GdiB,
+                comparison.GdiExpectedLinearR,
+                comparison.GdiExpectedLinearG,
+                comparison.GdiExpectedLinearB,
+                FormatRatio(comparison.WgcLinearR, comparison.GdiExpectedLinearR),
+                FormatRatio(comparison.WgcLinearG, comparison.GdiExpectedLinearG),
+                FormatRatio(comparison.WgcLinearB, comparison.GdiExpectedLinearB));
+        }
+
+        private static string FormatRatio(double value, int available)
+        {
+            return available != 0
+                ? value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)
+                : "N/A";
+        }
+
+        private static string FormatRatio(double numerator, double denominator)
+        {
+            return Math.Abs(denominator) > 0.0000001
+                ? (numerator / denominator).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)
+                : "N/A";
         }
 
         private static string DxgiColorSpaceToText(int value)
