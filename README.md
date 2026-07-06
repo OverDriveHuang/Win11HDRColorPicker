@@ -10,6 +10,14 @@ This repository contains the completed Phase 2 standalone prototype. It is not i
 
 The app window title also marks the prototype as `Windows 11 HDR only`.
 
+## 中文说明
+
+这是一个基于 PowerToys Color Picker UI 的 Windows 11 HDR 取色原型。它使用 `Windows.Graphics.Capture` FP16 路径读取屏幕最终显示管线中的 display-referred linear RGB，因此可以显示 SDR 白点以上的 HDR 数值、nits、Y nits 和 ICtCp。
+
+当前正式支持范围是 Windows 11 HDR。Windows 10 不保证 HDR/linear 数值准确；部分 Windows 10 系统会把 SDR 内容读成接近 2 倍的 linear 值，而且目前没有可靠的系统标志可以自动判断和修正。
+
+使用前建议关闭 PowerToys 自带的 Color Picker，避免全局快捷键或单实例逻辑冲突。下载请使用 GitHub Releases 中最新的 Windows x64 自包含压缩包，解压后运行 `PowerToys.ColorPickerUI.Stage2.exe`。
+
 ## Download
 
 Download the latest self-contained Windows x64 package from GitHub Releases:
