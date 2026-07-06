@@ -34,29 +34,31 @@
 
 nits 基准固定为 `1.0 = 80 nits`。这是需求确定项，不再读取 Windows SDR white level 作为默认基准。
 
-### Win10 SDR white level 验证和归一化
+### 平台支持边界
 
-在 Windows 10 21H2 + NVIDIA + 外接显示器上，用户已观察到 SDR 图片通过 WGC FP16 采样得到的 `linear RGB` 约为预期 sRGB 反伽马 linear 值的 2 倍，例如白色约为 `(2.0, 2.0, 2.0)`。这不是预期行为，需要先诊断原因，再决定是否做归一化修正。
+当前产品目标只支持 Windows 11 HDR 使用场景。主窗口和公开 README 必须明确显示 `Windows 11 HDR only` 或同等含义，避免用户把本工具当作 Windows 10 HDR/SDR 精确取样工具使用。
 
-诊断必须读取当前采样点所在显示器的 SDR white level，而不是主显示器、第一条 display path 或任意全局值。当前显示器应按鼠标位置或实际采样 monitor 匹配到对应 display target 后查询。
+Windows 10 上的 WGC FP16 读数不作为正式支持范围。已在 Windows 10 21H2 + 外接显示器上观察到：即使 SDR white level 为 80 nits、DXGI color space 为 SDR、Advanced Color 关闭或不支持，SDR 图片通过 WGC FP16 采样仍可能得到约为 GDI/sRGB 预期 linear 值 2 倍的结果。该异常与 HDR 开关、SDR white slider、bpc、当前显示器 SDR white level 都没有形成可靠触发关系，当前也不知道从哪个 Windows 版本开始修复。
 
-首步只把当前显示器的 SDR white level 写入 diagnostics/log，用于实机验证：
+因此主线不做以下修正：
 
-- raw SDR white level 值。
-- 换算后的 nits。
-- 相对 80 nits 的倍率。
-- WGC FP16 白点读数与该倍率是否吻合。
+- 不根据 Windows 版本、bpc、DXGI color space、Advanced Color 或 SDR white level 做隐藏自动 `/2` 补偿。
+- 不在正式产品里加入旧 GDI 采样路径或同点 WGC/GDI 比较。
+- 不提供面向普通用户的手动 gain multiplier 作为默认产品功能。
 
-由于多显示器环境下诊断值必须能归属到具体显示器，diagnostics/log 还必须输出当前鼠标所在显示器的身份信息：
+保留到主线的诊断能力仅限帮助用户报告环境状态：
 
-- GDI display device name，例如 `\\.\DISPLAY1`。
+- 当前鼠标所在显示器的 GDI display device name，例如 `\\.\DISPLAY1`。
 - Windows 暴露的 monitor friendly name，如可读。
 - 刷新诊断时的 cursor position。
 - 当前 monitor bounds。
+- raw SDR white level、换算后的 nits、相对 80 nits 的倍率。
+- DXGI output color space / bpc / luminance。
+- DisplayConfig Advanced Color 状态。
 
 设置页里的 diagnostics 文本必须提供 `Copy` 按钮，便于把完整诊断直接粘贴到 GitHub issue 或调试记录中。`Refresh` 应按当前鼠标所在显示器强制重读诊断，而不是复用首次读取值。
 
-如果实机确认 Win10 异常值与 `SDR white level / 80` 一致，则后续可以增加基于当前显示器 SDR white level 的归一化：在受影响环境中将 WGC FP16 采样值除以该倍率，使 SDR 图片白点回到 `linear RGB ~= 1.0`。该修正必须按当前显示器逐点应用，不能使用固定 `2x` 或跨显示器缓存错用。
+历史诊断分支 `codex/diagnostic-wgc-gdi-compare` 只作为 issue #2 的临时调查材料保存，不合并到主分支。该分支里的 GDI RGB 行、同点 WGC/GDI 比较、窗口排除和 top window 诊断不属于正式产品需求。
 
 ### 历史色块和 HDR 数据保存
 
@@ -243,7 +245,7 @@ Phase 2 standalone shell 是后台常驻程序，因此必须提供托盘入口�
 6. 最终 PowerToys 集成应保持原版 UI/UX，只扩展格式参数能力。
 7. 平均取样必须先平均 linear RGB，再进行 nits 和 ICtCp 派生计算。
 8. 历史色块必须保存点击采样当时的 HDR sample；切换历史色块和复制 HDR 格式时必须使用该色块自己的 HDR 数据。没有保存或不能读取 HDR 数据的色块必须显示/复制 `N/A`，不能沿用最近一次吸管采样值。
-9. Windows 10 SDR 图片出现 WGC FP16 读数约 2 倍时，必须先通过当前显示器 SDR white level diagnostics 验证倍率来源；如果确认倍率吻合，修正应按当前显示器的 `SDR white level / 80` 做归一化，不能使用固定倍率或取错显示器。
+9. 产品入口和公开说明必须清楚标注 Windows 11 HDR only。Windows 10 上 WGC FP16 读数异常不做隐藏自动补偿；如用户需要 Win10 特化修正，应自行 fork 或另开明确的实验分支。
 
 ## 待决策问题
 

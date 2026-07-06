@@ -28,7 +28,7 @@ namespace ColorPicker
         public ColorEditorWindow(AppStateHandler appStateHandler)
         {
             InitializeComponent();
-            TitleText.Text = $"{Properties.Resources.CP_Title} - {GetBuildLabel()}";
+            TitleText.Text = $"{Properties.Resources.CP_Title} - Windows 11 HDR only - {GetBuildLabel()}";
 
             _appStateHandler = appStateHandler;
             Closing += ColorEditorWindow_Closing;

@@ -1,10 +1,14 @@
 # WinHDRColorPicker
 
-Standalone Windows HDR color picker prototype based on Microsoft PowerToys Color Picker UI code, with an HDR sampling path added for Windows Graphics Capture FP16 output (Require Windows 11).
+Standalone Windows 11 HDR color picker prototype based on Microsoft PowerToys Color Picker UI code, with an HDR sampling path added for Windows Graphics Capture FP16 output.
+
+> Support scope: Windows 11 HDR only. Windows 10 is not supported for HDR/linear numeric accuracy. On some Windows 10 systems, `Windows.Graphics.Capture` FP16 readback can return SDR content at roughly 2x the expected linear value, and there is no reliable system flag for automatic correction.
 
 ## Current status
 
 This repository contains the completed Phase 2 standalone prototype. It is not integrated back into PowerToys yet, but it keeps the PowerToys Color Picker style, color format system, palette behavior, popup picker flow, settings panel, tray entry, and configurable global shortcut.
+
+The app window title also marks the prototype as `Windows 11 HDR only`.
 
 ## Download
 

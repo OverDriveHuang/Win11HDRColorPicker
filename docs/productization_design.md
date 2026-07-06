@@ -508,10 +508,10 @@ Phase 1 已完成。Phase 2 在用户反馈后纠正为 PowerToys-code-based pro
 - picker 活动期间复用同一个 WGC session/frame pool，避免每次 mouse sample 都重建 capture session。
 - Stage2 Settings 底部增加 HDR diagnostics 区域，显示当前鼠标所在显示器的 monitor identity、SDR white level、DXGI output color space/bpc/luminance、DisplayConfig Advanced Color 状态，并提供 `Refresh` 和 `Copy`。
 - Stage2 独立版使用 `RegisterHotKey` 启动 picker；低级键盘 hook 只处理 picker 激活后的 `Esc` / `Enter` / `Space`，并通过 WPF dispatcher 执行关闭/确认逻辑。
+- Issue #2 的 Win10 WGC FP16 异常已按产品边界关闭为不计划修复：主线明确 Windows 11 HDR only，不合并 GDI 对比诊断，不做基于不稳定条件的隐藏倍率补偿。
 
 剩余：
 
-- Win10 21H2 实机验证尚未完成；如果仍有问题，后续用新的 bug task 和 diagnostics/log 继续修。
 - full PowerToys integration 仍属于 Phase 3。
 
 ## 当前里程碑范围
