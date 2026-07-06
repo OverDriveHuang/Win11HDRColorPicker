@@ -28,16 +28,23 @@ namespace ColorPicker
         public ColorEditorWindow(AppStateHandler appStateHandler)
         {
             InitializeComponent();
-            TitleText.Text = $"{Properties.Resources.CP_Title} - Windows 11 HDR only - {GetBuildLabel()}";
+            TitleText.Text = $"{Properties.Resources.CP_Title} - Win11 - {GetBuildTimestamp()}";
 
             _appStateHandler = appStateHandler;
             Closing += ColorEditorWindow_Closing;
         }
 
-        private static string GetBuildLabel()
+        private static string GetBuildTimestamp()
         {
             var type = Type.GetType("ColorPicker.Stage2.Stage2BuildInfo");
-            return type?.GetField("BuildLabel")?.GetValue(null) as string ?? "Build unknown";
+            var timestamp = type?.GetField("BuildTimestamp")?.GetValue(null) as string;
+            if (!string.IsNullOrWhiteSpace(timestamp))
+            {
+                return timestamp;
+            }
+
+            var label = type?.GetField("BuildLabel")?.GetValue(null) as string;
+            return label?.StartsWith("Build ", StringComparison.Ordinal) == true ? label.Substring(6) : "unknown";
         }
 
         private void ColorEditorWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)

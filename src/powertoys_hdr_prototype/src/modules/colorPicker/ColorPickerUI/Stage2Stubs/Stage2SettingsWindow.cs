@@ -42,7 +42,7 @@ namespace ColorPicker.Stage2
             _settings = settings;
             _stage2Settings = settings as Stage2UserSettings;
 
-            Title = $"Color Picker Settings - Windows 11 HDR only - {Stage2BuildInfo.BuildLabel}";
+            Title = $"Color Picker Settings - Win11 - {Stage2BuildInfo.BuildTimestamp}";
             Width = 960;
             Height = 760;
             MinWidth = 760;
